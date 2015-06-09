@@ -1,0 +1,2 @@
+C:\Users\DSoloviev\Documents\Visual Studio 2013\Projects\jsprolog\jsprolog\obj\Debug\jsprolog.njsprojResolveAssemblyReference.cache
+C:\Users\DSoloviev\Documents\Visual Studio 2013\Projects\jsprolog\jsprolog\bin\Microsoft.NodejsTools.WebRole.dll
