@@ -11,41 +11,6 @@ describe("prolog solver", function () {
         expect(result).toBe(true);
     });
     
-    it("correctly cuts", function () {
-        var db = Parser.parse("fact(a).fact(b).firstFact(X):-fact(X),!.");
-        var query = Parser.parseQuery("firstFact(Fact).");
-        var out = {};
-        var result = Solver.query(db, query, out);
-        expect(result).toBe(true);        
-        expect(out.Fact.length).toBe(1);
-    });
-    
-    it("can produce cartesian product", function () {
-        var db = Parser.parse("fact(a). fact(b). decart(X,Y):-fact(X),fact(Y).");
-        var query = Parser.parseQuery("decart(Fact1,Fact2).");
-        var out = {};
-        var result = Solver.query(db, query, out);
-        expect(result).toBe(true);
-        expect(out.Fact1.length).toBe(4);
-        expect(out.Fact1[0]).toBe("a"); expect(out.Fact2[0]).toBe("a");
-        expect(out.Fact1[1]).toBe("a"); expect(out.Fact2[1]).toBe("b");
-        expect(out.Fact1[2]).toBe("b"); expect(out.Fact2[2]).toBe("a");
-        expect(out.Fact1[3]).toBe("b"); expect(out.Fact2[3]).toBe("b");
-    });
-    
-    it("works with classic not implementation", function () {
-        
-        var db = Parser.parse("not(Term):-call(Term),!,fail. not(Term). fact(a). fact(b). secret(b). fact(c). open(X):-fact(X),not(secret(X)).");
-        var query = Parser.parseQuery("open(X).");
-        var out = {};
-        var result = Solver.query(db, query, out);
-        expect(result).toBe(true);
-        expect(out.X instanceof Array).toBe(true);
-        expect(out.X.length).toBe(2);
-        expect(out.X[0]).toBe("a");
-        expect(out.X[1]).toBe("c");        
-    });
-    
     it("solves simple fact and returns values", function () {
         var db = Parser.parse("male(bob). male(jacob).");
         var query = Parser.parseQuery("male(X).");
@@ -69,16 +34,41 @@ describe("prolog solver", function () {
         expect(out.X.length).toBe(2);
     });
     
-    //it("correctly works with lists", function () {
-    //    var db = Parser.parse("member(X,[X|R]). member(X, [Y | R]) :- member(X, R)."),
-    //        query = Parser.parseQuery("member(x,[u,s,t,x,z])."),
-    //        out = {},
-    //        result = Solver.query(db, query, out);
+    it("can produce cartesian product", function () {
+        var db = Parser.parse("fact(a). fact(b). decart(X,Y):-fact(X),fact(Y).");
+        var query = Parser.parseQuery("decart(Fact1,Fact2).");
+        var out = {};
+        var result = Solver.query(db, query, out);
+        expect(result).toBe(true);
+        expect(out.Fact1.length).toBe(4);
+        expect(out.Fact1[0]).toBe("a"); expect(out.Fact2[0]).toBe("a");
+        expect(out.Fact1[1]).toBe("a"); expect(out.Fact2[1]).toBe("b");
+        expect(out.Fact1[2]).toBe("b"); expect(out.Fact2[2]).toBe("a");
+        expect(out.Fact1[3]).toBe("b"); expect(out.Fact2[3]).toBe("b");
+    });
+    
+    it("correctly cuts", function () {
+        var db = Parser.parse("fact(a).fact(b).firstFact(X):-fact(X),!.");
+        var query = Parser.parseQuery("firstFact(Fact).");
+        var out = {};
+        var result = Solver.query(db, query, out);
+        expect(result).toBe(true);        
+        expect(out.Fact.length).toBe(1);
+    });    
+    
+    it("works with classic not implementation", function () {
         
-    //    expect(result).toBeTruthy();
-    //});
-    
-    
+        var db = Parser.parse("not(Term):-call(Term),!,fail. not(Term). fact(a). fact(b). secret(b). fact(c). open(X):-fact(X),not(secret(X)).");
+        var query = Parser.parseQuery("open(X).");
+        var out = {};
+        var result = Solver.query(db, query, out);
+        expect(result).toBe(true);
+        expect(out.X instanceof Array).toBe(true);
+        expect(out.X.length).toBe(2);
+        expect(out.X[0]).toBe("a");
+        expect(out.X[1]).toBe("c");        
+    });   
+        
     it("correctly works with lists", function () {
         var db = Parser.parse("member(X,[X|R]). member(X, [Y | R]) :- member(X, R)."),            
             query,
@@ -86,8 +76,8 @@ describe("prolog solver", function () {
             result,
             list = new AST.Atom("nil");
         
-        //"member(x,[l0 ... ln])."
-        for (var i = 1000; i > 0; i--) {
+        // member(x,[l0 ... ln]).
+        for (var i = 100; i > 0; i--) {
             list = new AST.Term("cons", [new AST.Atom("l"+i), list]);
         }
         query = new AST.Body([new AST.Term("member",[new AST.Atom("l100"), list])]);

@@ -13,17 +13,17 @@ var options = {
 };
 exports.options = options;
 
-
-
-var env2str = function (env) {
-    var r = [];
-    for (key in env) {
-        if (Object.prototype.hasOwnProperty.call(env, key)) {
-            r.push(key + " = " + env[key]);
-        }
+/**
+ * prints debug information to the console
+ * @param message message to print
+ * @param indentLevel indentation level
+ */
+function trace(message, indentLevel) {
+    if (options.enableTrace && console) {        
+        for (; indentLevel > 1; indentLevel--) { str = "    " + str; }
+        console.log(message);
     }
-    return r.join(", ");
-};
+}
 
 /**
  * executes a query agains the database
@@ -36,7 +36,7 @@ exports.query = function query(db, query, outVars) {
     var vars = varNames(query.list);
     var proven = false;
     
-    var cont = proveexperimental(renameVariables(query.list, 0, []), db, function (environment) {
+    var cont = getdtreeiterator(renameVariables(query.list, 0, []), db, function (environment) {
         proven = true;
         if (outVars && typeof (outVars) === "object") {
             vars.forEach(function (v) {
@@ -56,26 +56,6 @@ exports.query = function query(db, query, outVars) {
     
     return proven;
 };
-
-
-
-
-
-
-
-
-
-/**
- * prints debug information to the console
- */
-function trace(str, indent) {
-    if (options.enableTrace && console) {
-        if (indent) {
-            for (; indent > 1; indent--) str = "    " + str;
-        }
-        console.log(str);
-    }
-}
 
 /**
  *  The value of x in a given environment (non-recursive)
@@ -253,29 +233,25 @@ function renameVariables(list, level, parent) {
 
 // Return a list of all variables mentioned in a list of Terms.
 function varNames(list) {
-    var out = [];
-    
-    for (var i = 0; i < list.length; i++) {
-        if (list[i] instanceof Variable) {
-            for (var j = 0; j < out.length; j++) {
-                if (out[j].name == list[i].name) {
-                    break;
-                }
+    var out = [], vars = {}, t, n;
+    list = list.slice(0); // clone   
+    while (list.length) {
+        t = list.pop();
+        if (t instanceof Variable) {
+            n = t.name;
+            // ignore special variable _
+            // push only new names
+            if (n !== "_" && out.indexOf(n) === -1) {
+                out.push(n);
+                vars[n] = t;
             }
-            j === out.length && (out[out.length] = list[i]);
-        } else if (list[i] instanceof Term) {
-            var o2 = varNames(list[i].partlist.list); // TODO: remove recursion
-            for (var j = 0; j < o2.length; j++) {
-                for (var k = 0; k < out.length; k++) {
-                    if (o2[j].name == out[k].name) {
-                        break;
-                    }
-                }
-                k === out.length && (out[out.length] = o2[j]);
-            }
-        }
+        } else if (t instanceof Term) {
+            // we don't care about tree walk order
+            Array.prototype.push.apply(list, t.partlist.list);        
+        }        
     }
-    return out.filter(function (e) { return e.name !== "_"; });
+
+    return out.map(function (name) { return vars[name];});
 }
 
 var builtinPredicates = {
@@ -313,7 +289,7 @@ var builtinPredicates = {
  * @param fsuccess success callback
  * @returns a function to perform next step
  */
-function proveexperimental(originalGoals, rulesDB, fsuccess) {
+function getdtreeiterator(originalGoals, rulesDB, fsuccess) {
     "use strict";
     var cdb = {};
     
@@ -331,7 +307,7 @@ function proveexperimental(originalGoals, rulesDB, fsuccess) {
     // main loop continuation
     function loop(goals, idx, environment, fbacktrack, level) {
         
-        if (!goals.length) {         
+        if (!goals.length) {
             trace("FOUND A SOLUTION", level);
             fsuccess(environment);
             return fbacktrack;
@@ -391,8 +367,8 @@ function proveexperimental(originalGoals, rulesDB, fsuccess) {
                         // Still leaks though
                         // Living remainder to rewrite variable binding mechanism
                         if (level > 1) {
-                            var env3=[], referencingVariableNames = [], v, v2;
-
+                            var env3 = [], referencingVariableNames = [], v, v2;
+                            
                             for (var key in env2) {
                                 if (Object.prototype.hasOwnProperty.call(env2, key)) {
                                     v = env2[key];
@@ -403,20 +379,20 @@ function proveexperimental(originalGoals, rulesDB, fsuccess) {
                                     }
                                 }
                             }
-
+                            
                             for (var key in env2) {
                                 if (Object.prototype.hasOwnProperty.call(env2, key) && key.split(".")[1] == level) {
                                     //console.log("RETAINING THIS-LEVEL: " + key);
                                     env3[key] = env2[key];
                                 }
                             }
-
+                            
                             env2 = env3;
 
-                        }                        
+                        }
                         
                         // skipping backtracking to the same level because it's the last goal
-                        return loop(nextGoals, 0, env2, fbacktrack, level + 1); 
+                        return loop(nextGoals, 0, env2, fbacktrack, level + 1);
                     };
                 } else {
                     return function levelDown() {
@@ -426,7 +402,7 @@ function proveexperimental(originalGoals, rulesDB, fsuccess) {
                 }
             }
         }
-        trace("___", level);        
+        trace("___", level);
         return fbacktrack;
     }    ;
     
