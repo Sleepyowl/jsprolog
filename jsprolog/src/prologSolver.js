@@ -41,7 +41,6 @@ exports.query = function query(db, query, outVars) {
         if (outVars && typeof (outVars) === "object") {
             vars.forEach(function (v) {
                 var name = v.name, val = (bindingContext.value(new Variable(name))).toString();
-                trace(name + " = " + val);
                 if (!(name in outVars)) {
                     outVars[name] = [];
                 }
@@ -82,19 +81,15 @@ function varNames(list) {
 
 var builtinPredicates = {
     "cut/0" : function (loop, goals, idx, bindingContext, fbacktrack, level) {
-        trace('CUT/0', level);
         var nextgoals = goals.slice(1); // cut always succeeds
         return loop(nextgoals, 0, new BindingContext(bindingContext), function () {
             return fbacktrack && fbacktrack(2); // probably still wrong... 8(
         }, level);
     },
     "fail/0": function (loop, goals, idx, bindingContext, fbacktrack, level) {
-        trace('FAIL/0', level);
         return fbacktrack; // FAIL
     },
-    "call/1": function (loop, goals, idx, bindingContext, fbacktrack, level) {
-        trace('CALL/1', level);
-        
+    "call/1": function (loop, goals, idx, bindingContext, fbacktrack, level) {       
         var first = bindingContext.value(goals[0].partlist.list[0]);
         if (!(first instanceof Term)) {
             return fbacktrack; // FAIL
@@ -134,15 +129,12 @@ function getdtreeiterator(originalGoals, rulesDB, fsuccess) {
     function loop(goals, idx, parentBindingContext, fbacktrack, level) {
         
         if (!goals.length) {
-            trace("FOUND A SOLUTION", level);
             fsuccess(parentBindingContext);
             return fbacktrack;
         }
         
         var currentGoal = goals[0],
             currentBindingContext = new BindingContext(parentBindingContext);
-        
-        trace("G." + level + " = " + currentGoal, level);
         
         var builtin = builtinPredicates[currentGoal.name + "/" + currentGoal.partlist.list.length];
         if (typeof (builtin) === "function") {
@@ -151,15 +143,11 @@ function getdtreeiterator(originalGoals, rulesDB, fsuccess) {
         
         // searching for next matching rule
         for (var i = idx, db = cdb[currentGoal.name]; i < db.length; i++) {
-            var rule = db[i];
-            //trace('try db[' + i + '] = ' + rule, level);
+            var rule = db[i];            
             
             var renamedHead = new Term(rule.head.name, currentBindingContext.renameVariables(rule.head.partlist.list, currentGoal));
             
-            if (currentBindingContext.unify(currentGoal, renamedHead)) {
-                trace(currentGoal + " = " + renamedHead + "( "+rule+" )", level);
-                trace(currentBindingContext.toString(), level);
-            } else {
+            if (!currentBindingContext.unify(currentGoal, renamedHead)) {
                 continue;
             }
             
@@ -171,30 +159,24 @@ function getdtreeiterator(originalGoals, rulesDB, fsuccess) {
             var fCurrentBT = function (cut) {
                 
                 var b = fbacktrack;
-                trace("idx = " + idx, level);
                 if (cut > 0) {
-                    trace("cutting goals: " + goals, level);
                     return fbacktrack && fbacktrack(cut - 1);
                 } else {
-                    trace(idx === 0 ? "<<<" : "|<|", level);
-                    return loop(goals, i + 1, parentBindingContext, fbacktrack, level); // ??
+                    return loop(goals, i + 1, parentBindingContext, fbacktrack, level);
                 }
             };
             
             if (rule.body == null) {
                 var nextGoals = goals.slice(1); // no body = goal is met
                 return function nextGoal() {
-                    trace("|>|", level);
                     return loop(nextGoals, 0, currentBindingContext, fCurrentBT, level);
                 };
-            } else {
-                //throw "Not implemented yet";
+            } else {                
                 var newFirstGoals = currentBindingContext.renameVariables(rule.body.list, renamedHead);
                 var nextGoals = newFirstGoals.concat(goals.slice(1));
                 
                 if (nextGoals.length === 1) {
                     return function levelDownTail() {
-                        trace("tail>>>", level);
                         // skipping backtracking to the same level because it's the last goal                        
                         // removing parent from binding context, making grand-parent its parent
                         // TODO: there's a problem with the possibility of variables in the parent context being referenced by ancestor contexts, write tests for that and fix
@@ -202,13 +184,11 @@ function getdtreeiterator(originalGoals, rulesDB, fsuccess) {
                     };
                 } else {
                     return function levelDown() {
-                        trace(">>>", level);
                         return loop(nextGoals, 0, currentBindingContext, fCurrentBT, level + 1);
                     };
                 }
             }
         }
-        trace("___", level);
         return fbacktrack;
     }    ;
     
@@ -223,8 +203,12 @@ function getdtreeiterator(originalGoals, rulesDB, fsuccess) {
 function BindingContext(parentContext) {
     this.parent = parentContext;   
     this.parentCtx = parentContext && parentContext.ctx || null;
-    this.ctx = Object.create(this.parentCtx);
+    this.ctx = Object.create(this.parentCtx);    
     this.level = (parentContext && parentContext.level || 0) + 1;
+    
+    // to avoid for ... in which is way too slow
+    this.varNames = [];
+    this.allVarNames = parentContext && parentContext.varNames.slice(0) || [];
 }
 
 BindingContext.prototype.toString = function toString() {
@@ -280,12 +264,15 @@ BindingContext.prototype.renameVariables = function renameVariables(list, parent
     return out;
 }
 
-BindingContext.prototype.bind = function (name, value) {
-    
+BindingContext.prototype.bind = function (name, value) {    
     if (name in (this.ctx)) {// sanity check
         throw "variable " + name + " is already bound in the context!";
-    }
+    }    
     this.ctx[name] = value;
+    
+    // to avoid for ... in which is way too slow
+    this.varNames.push(name);
+    this.allVarNames.push(name);
 };
 
 BindingContext.prototype.value = function value(x) {
@@ -367,7 +354,7 @@ BindingContext.prototype.unify = function unify(x, y) {
     }
     
     // binding variables only if x indeed unifies with y
-    for (var key in toSet) {
+    for (var key in toSet) { // consider replacing for in with a regular for
         if (Object.prototype.hasOwnProperty.call(toSet, key)) {
             this.bind(key, toSet[key]);
         }
@@ -380,27 +367,33 @@ BindingContext.prototype.unify = function unify(x, y) {
  * removes variables from the context that are not referenced by parent context
  */
 BindingContext.prototype.cutTail = function cutTail(goal) {
-    var candidates, v, cutTailContext = this, parent = this.parent;
+    var ctx = this.ctx, candidates, v, n, cutTailContext = this, parent = this.parent;
     if (parent && parent.parentCtx) {        
         cutTailContext = new BindingContext(parent);        
         candidates = varNames(goal).filter(function (name) { return name in parent.ctx; });
+        
+        // copy current level
+        for (var i = 0, vn = this.varNames, len = vn.length; i < len; ++i) {
+            n = vn[i];
+            cutTailContext.ctx[n] = ctx[n];
+        }
+        
+        // copy parents that are not in candidates
+        for (var i = 0, vn = parent.varNames, len = vn.length; i < len; ++i) {
+            n = vn[i];
+            if (candidates.indexOf(n) === -1) {
+                cutTailContext.ctx[n] = parent.ctx[n];
+            }
+        }
 
-        for (var key in this.ctx) {
-            if (Object.prototype.hasOwnProperty.call(this.ctx, key)) {
-                cutTailContext.ctx[key] = this.ctx[key];
-            } else if (Object.prototype.hasOwnProperty.call(this.parentCtx, key)) {
-                if (candidates.indexOf(key) !== -1) {                    
-                    for (var key2 in this.ctx) {
-                        if (this.ctx[key2] instanceof Variable && this.ctx[key2].name == key) {
-                            trace(key + " is referenced by " + key2 + ", short-cutting");
-                            cutTailContext.ctx[key2] = this.ctx[key]; // short-cut it                            
-                        }
-                    }
-                } else {
-                    cutTailContext.ctx[key] = this.ctx[key];
-                }
+        // process links to the candidates (should be any variables linked to a variable in the same context... right?)
+        for (var i = 0, vn = parent.allVarNames, len = vn.length; i < len; ++i) {
+            n = vn[i];
+            v = parent.parentCtx[n]; 
+            if (v instanceof Variable && candidates.indexOf(v.name) !== -1) {
+                cutTailContext.ctx[n] = parent.ctx[v.name];
             }
         }
     }
-    return cutTailContext;
+    return this;
 };
