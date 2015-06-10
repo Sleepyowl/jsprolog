@@ -86,6 +86,17 @@ describe("prolog solver", function () {
         result = Solver.query(db, query, out);        
         expect(result).toBeTruthy();
     });
+    
+    it("produces list cartesian", function () { 
+        var db = Parser.parse("member(X,[X|R]). member(X, [Y | R]) :- member(X, R)."),            
+            query = Parser.parseQuery("member(X,[a,b,c]),member(Y,[1,2,3])."),
+            out = {},
+            result = Solver.query(db, query, out);
+
+        expect(result).toBeTruthy();                
+        expect(out.X).toEqual(["a", "a", "a", "b", "b", "b", "c", "c", "c"]);
+        expect(out.Y).toEqual(["1", "2", "3", "1", "2", "3", "1", "2", "3"]);
+    });
    
     
     it("correctly solves color map example from prolog tutorial", function () {
