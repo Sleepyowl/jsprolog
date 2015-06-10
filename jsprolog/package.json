@@ -2,7 +2,7 @@
   "name": "jsprolog",
   "version": "0.0.0",
   "description": "jsprolog",
-  "main": "Gruntfile.js",
+  "main": "src/main.js",
   "author": {
     "name": "Dmitry Soloviev",
     "email": "dmitry.soloviev@outlook.com"

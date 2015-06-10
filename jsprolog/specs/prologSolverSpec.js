@@ -74,13 +74,14 @@ describe("prolog solver", function () {
             query,
             out = {},
             result,
-            list = new AST.Atom("nil");
+            list = new AST.Atom("nil"),
+            depth = 200;
         
         // member(x,[l0 ... ln]).
-        for (var i = 100; i > 0; i--) {
+        for (var i = depth; i > 0; i--) {
             list = new AST.Term("cons", [new AST.Atom("l"+i), list]);
         }
-        query = new AST.Body([new AST.Term("member",[new AST.Atom("l100"), list])]);
+        query = new AST.Body([new AST.Term("member",[new AST.Atom("l" + depth), list])]);
 
         result = Solver.query(db, query, out);        
         expect(result).toBeTruthy();
