@@ -19,8 +19,8 @@ exports.options = options;
  * @param indentLevel indentation level
  */
 function trace(message, indentLevel) {
-    if (options.enableTrace && console) {        
-        for (; indentLevel > 1; indentLevel--) { str = "    " + str; }
+    if (options.enableTrace && console) {
+        for (; indentLevel > 1; indentLevel--) { message = "    " + message; }
         console.log(message);
     }
 }
@@ -36,11 +36,13 @@ exports.query = function query(db, query, outVars) {
     var vars = varNames(query.list);
     var proven = false;
     
-    var cont = getdtreeiterator(renameVariables(query.list, 0, []), db, function (environment) {
+    var cont = getdtreeiterator(query.list, db, function (bindingContext) {
+        trace("context in SUCCESS callback:\n"+ bindingContext)
         proven = true;
         if (outVars && typeof (outVars) === "object") {
             vars.forEach(function (v) {
-                var name = v.name, val = (value(new Variable(name + ".0"), environment)).toString();
+                var name = v.name, val = (bindingContext.value(new Variable(name/*+ ".0"*/))).toString();
+                trace(name + " = " + val);
                 if (!(name in outVars)) {
                     outVars[name] = [];
                 }
@@ -49,7 +51,6 @@ exports.query = function query(db, query, outVars) {
         }
     });
     
-    
     while (cont != null) {
         cont = cont();
     }
@@ -57,148 +58,196 @@ exports.query = function query(db, query, outVars) {
     return proven;
 };
 
-/**
- *  The value of x in a given environment (non-recursive)
- */
-function value(x, env) {
-    var queue = [x], acc = [], c;
+// Return a list of all variables mentioned in a list of Terms.
+function varNames(list) {
+    var out = [], vars = {}, t, n;
+    list = list.slice(0); // clone   
+    while (list.length) {
+        t = list.pop();
+        if (t instanceof Variable) {
+            n = t.name;
+            // ignore special variable _
+            // push only new names
+            if (n !== "_" && out.indexOf(n) === -1) {
+                out.push(n);
+                vars[n] = t;
+            }
+        } else if (t instanceof Term) {
+            // we don't care about tree walk order
+            Array.prototype.push.apply(list, t.partlist.list);
+        }
+    }
     
-    while (queue.length) {
-        x = queue.pop();
-        acc.push(x);
-        if (x instanceof Term) {
-            Array.prototype.push.apply(queue, x.partlist.list);
-        } else if (x instanceof Variable) {
-            c = env[x.name];
-            if (c) {
-                acc.pop();
-                queue.push(c);
+    return out.map(function (name) { return vars[name]; });
+}
+
+var builtinPredicates = {
+    "cut/0" : function (loop, goals, idx, bindingContext, fbacktrack, level) {
+        trace('CUT/0', level);
+        var nextgoals = goals.slice(1); // cut always succeeds
+        return loop(nextgoals, 0, new BindingContext(bindingContext), function () {
+            return fbacktrack && fbacktrack(2); // probably still wrong... 8(
+        }, level);
+    },
+    "fail/0": function (loop, goals, idx, bindingContext, fbacktrack, level) {
+        trace('FAIL/0', level);
+        return fbacktrack; // FAIL
+    },
+    "call/1": function (loop, goals, idx, bindingContext, fbacktrack, level) {
+        trace('CALL/1', level);
+        
+        var first = bindingContext.value(goals[0].partlist.list[0]);
+        if (!(first instanceof Term)) {
+            return fbacktrack; // FAIL
+        }
+        
+        var ng = goals.slice(0);
+        ng[0] = first;
+        first.parent = goals[0];
+        
+        return loop(ng, 0, bindingContext, fbacktrack, level);
+    }
+};
+
+/**
+ * The main proving engine 
+ * @param originalGoals original goals to prove
+ * @param rulesDB prolog database to consult with
+ * @param fsuccess success callback
+ * @returns a function to perform next step
+ */
+function getdtreeiterator(originalGoals, rulesDB, fsuccess) {
+    "use strict";
+    var cdb = {};
+    
+    // maybe move to parser level, idk
+    for (var i = 0, name, rule; i < rulesDB.length; i++) {
+        rule = rulesDB[i];
+        name = rule.head.name;
+        if (name in cdb) {
+            cdb[name].push(rule);
+        } else {
+            cdb[name] = [rule];
+        }
+    }
+    
+    // main loop continuation
+    function loop(goals, idx, parentBindingContext, fbacktrack, level) {
+        
+        if (!goals.length) {
+            trace("FOUND A SOLUTION", level);
+            fsuccess(parentBindingContext);
+            return fbacktrack;
+        }
+        
+        var currentGoal = goals[0],
+            currentBindingContext = new BindingContext(parentBindingContext);
+        
+        trace("G." + level + " = " + currentGoal, level);
+        trace("all goals: " + goals, level);
+        
+        var builtin = builtinPredicates[currentGoal.name + "/" + currentGoal.partlist.list.length];
+        if (typeof (builtin) === "function") {
+            return builtin(loop, goals, idx, currentBindingContext, fbacktrack, level);
+        }
+        
+        // searching for next matching rule
+        for (var i = idx, db = cdb[currentGoal.name]; i < db.length; i++) {
+            var rule = db[i];
+            //trace('try db[' + i + '] = ' + rule, level);
+            
+            var renamedHead = new Term(rule.head.name, currentBindingContext.renameVariables(rule.head.partlist.list, currentGoal));
+            
+            if (currentBindingContext.unify(currentGoal, renamedHead)) {
+                trace(currentGoal + " = " + renamedHead, level);
+                trace(currentBindingContext.toString(), level);
+            } else {
+                continue;
+            }
+            
+            // backtracking continuation
+            
+            /// CURRENT BACKTRACK CONTINUATION  ///
+            /// WHEN INVOKED BACKTRACKS TO THE  ///
+            /// NEXT RULE IN THE PREVIOUS LEVEL ///
+            var fCurrentBT = function (cut) {
+                
+                var b = fbacktrack;
+                trace("idx = " + idx, level);
+                if (cut > 0) {
+                    trace("cutting goals: " + goals, level);
+                    return fbacktrack && fbacktrack(cut - 1);
+                } else {
+                    trace(idx === 0 ? "<<<" : "|<|", level);
+                    return loop(goals, i + 1, parentBindingContext, fbacktrack, level); // ??
+                }
+            };
+            
+            if (rule.body == null) {
+                var nextGoals = goals.slice(1); // no body = goal is met
+                return function nextGoal() {
+                    trace("|>|", level);
+                    return loop(nextGoals, 0, currentBindingContext, fCurrentBT, level);
+                };
+            } else {
+                //throw "Not implemented yet";
+                var newFirstGoals = currentBindingContext.renameVariables(rule.body.list, renamedHead);
+                var nextGoals = newFirstGoals.concat(goals.slice(1));
+                
+                if (nextGoals.length === 1) {
+                    return function levelDownTail() {
+                        trace("tail>>>", level);
+                        // skipping backtracking to the same level because it's the last goal
+                        //trace("//: " + currentBindingContext.tail().toString());
+                        return loop(nextGoals, 0, currentBindingContext.tail(), fbacktrack, level + 1);
+                    };
+                } else {
+                    return function levelDown() {
+                        trace(">>>", level);
+                        return loop(nextGoals, 0, currentBindingContext, fCurrentBT, level + 1);
+                    };
+                }
             }
         }
-    }
-    
-    queue = acc;
-    acc = [];
-    
-    for (var i = queue.length - 1; i >= 0; i--) {
-        x = queue[i];
-        if (x instanceof Term) {
-            var c = x.partlist.list.length,
-                l = acc.splice(-c, c);
-            acc.push(new Term(x.name, l));
-        } else acc.push(x);
-    }
-    
-    return acc[0];
-}
-
-/**
- * Creates a new environment from the old with variable n bound to z
- * @param n name of a variable
- * @param z Part to bind to a variable (Part is Atom|Term|Variable)
- * @param e old environment
- * @returns new environment
- */
-function newEnv(n, z, e) {
-    var ne = [];
-    // original comment: 
-    // We assume that n has been 'unwound' or 'followed' as far as possible
-    // in the environment. If this is not the case, we could get an alias loop.
-    ne[n] = z;
-    
-    for (var i in e) {
-        if (Object.prototype.hasOwnProperty.call(e, i) && i != n) {
-            ne[i] = e[i];
-        }
-    }
-    
-    return ne;
-}
-
-/**
- * Creates a new environment from the old with variable n bound to z
- * @param n name of a variable
- * @param z Part to bind to a variable (Part is Atom|Term|Variable)
- * @param e old environment
- * @returns new environment
- */
-function envSlice(e, level) {
-    var ne = [];
+        trace("___", level);
+        return fbacktrack;
+    }    ;
     
     
-    for (var i in e) {
-        if (Object.prototype.hasOwnProperty.call(e, i) && +i.split(".")[1] === level) {
-            
-            ne[i] = e[i];
-
-        }
-    }
-    
-    return ne;
-}
+    return loop(originalGoals, 0, null, null, 1);
+};
 
 
 /**
- * Removes all levels below 'level'
+ * creates binding context for variables
  */
-function cloneEnv(e) {
-    var ne = [];
-    
-    for (var i in e) {
-        if (Object.prototype.hasOwnProperty.call(e, i)) {
-            ne[i] = e[i];
-        }
-    }
-    return ne;
+function BindingContext(parentContext) {
+    this.parentCtx = parentContext && parentContext.ctx || null;
+    this.ctx = Object.create(this.parentCtx);
+    this.level = (parentContext && parentContext.level) + 1;
 }
 
+BindingContext.prototype.toString = function toString() {
+    var r = [], p = [];
+    for (key in this.ctx) {
+        Array.prototype.push.call(
+            Object.prototype.hasOwnProperty.call(this.ctx, key) ? r :p,
+            key + " = " + this.ctx[key]);
+    }
+    return r.join(", ") + " || " + p.join(", ");
+};
 
 /**
- * Unifies two term in a given environment, returns environment where terms unified or null if they do not unify
- * @param x first term to unify
- * @param y second term to unify
- * @param env environment for the unification
- * @returns environment with unified terms or null
+ * renames variables to make sure names are unique
  */
-function unify(x, y, env) {
-    x = value(x, env);
-    y = value(y, env);
-    
-    if (x instanceof Variable) {
-        return x.name === "_" ? env : newEnv(x.name, y, env); // _ unifies with anything but doesn't bind ?
-    }
-    
-    if (y instanceof Variable) {
-        return y.name === "_" ? env : newEnv(y.name, x, env); // _ unifies with anything but doesn't bind ?
-    }
-    
-    if (x instanceof Atom || y instanceof Atom) {
-        return x.type == y.type && x.name == y.name && env || null;
-    }
-    
-    // Term
-    if (x.name != y.name || x.partlist.list.length != y.partlist.list.length) {
-        return null;
-    }
-    
-    for (var i = 0; i < x.partlist.list.length && env != null; i++) {
-        env = unify(x.partlist.list[i], y.partlist.list[i], env); // TODO: remove recursion
-    }
-    
-    return env;
-}
-
-// Go through a list of terms (ie, a Body or Partlist's list) renaming variables
-// by appending 'level' to each variable name.
-// How non-graph-theoretical can this get?!?
-// "parent" points to the subgoal, the expansion of which lead to these terms.
-function renameVariables(list, level, parent) {
+BindingContext.prototype.renameVariables = function renameVariables(list, parent) {
     var out = [], 
         queue = [],
         stack = [list],
         clen,
-        tmp;
-    
+        tmp,
+        level = this.level;
+
     // prepare depth-first queue
     while (stack.length) {
         list = stack.pop();
@@ -231,181 +280,121 @@ function renameVariables(list, level, parent) {
     return out;
 }
 
-// Return a list of all variables mentioned in a list of Terms.
-function varNames(list) {
-    var out = [], vars = {}, t, n;
-    list = list.slice(0); // clone   
-    while (list.length) {
-        t = list.pop();
-        if (t instanceof Variable) {
-            n = t.name;
-            // ignore special variable _
-            // push only new names
-            if (n !== "_" && out.indexOf(n) === -1) {
-                out.push(n);
-                vars[n] = t;
-            }
-        } else if (t instanceof Term) {
-            // we don't care about tree walk order
-            Array.prototype.push.apply(list, t.partlist.list);        
-        }        
+BindingContext.prototype.bind = function (name, value) {
+        
+    if (name in (this.ctx)) {// sanity check
+        throw "variable " + name + " is already bound in the context!";
     }
-
-    return out.map(function (name) { return vars[name];});
-}
-
-var builtinPredicates = {
-    "cut/0" : function (loop, goals, idx, environment, fbacktrack, level) {
-        trace('CUT/0', level);
-        var nextgoals = goals.slice(1); // cut always succeeds
-        return loop(nextgoals, 0, cloneEnv(environment), function () {
-            return fbacktrack && fbacktrack(2); // probably still wrong... 8(
-        }, level);
-    },
-    "fail/0": function (loop, goals, idx, environment, fbacktrack, level) {
-        trace('FAIL/0', level);
-        return fbacktrack; // FAIL
-    },
-    "call/1": function (loop, goals, idx, environment, fbacktrack, level) {
-        trace('CALL/1', level);
-        
-        var first = value(goals[0].partlist.list[0], environment);
-        if (!(first instanceof Term)) {
-            return fbacktrack; // FAIL
-        }
-        
-        var ng = goals.slice(0);
-        ng[0] = first;
-        first.parent = goals[0];
-        
-        return loop(ng, 0, environment, fbacktrack, level);
-    }
+    this.ctx[name] = value;
 };
 
-/**
- * The main proving engine 
- * @param originalGoals original goals to prove
- * @param rulesDB prolog database to consult with
- * @param fsuccess success callback
- * @returns a function to perform next step
- */
-function getdtreeiterator(originalGoals, rulesDB, fsuccess) {
-    "use strict";
-    var cdb = {};
+BindingContext.prototype.value = function value(x) {
+    var queue = [x], acc = [], c;
     
-    // maybe move to parser level, idk
-    for (var i = 0, name, rule; i < rulesDB.length; i++) {
-        rule = rulesDB[i];
-        name = rule.head.name;
-        if (name in cdb) {
-            cdb[name].push(rule);
-        } else {
-            cdb[name] = [rule];
+    while (queue.length) {
+        x = queue.pop();
+        acc.push(x);
+        if (x instanceof Term) {
+            Array.prototype.push.apply(queue, x.partlist.list);
+        } else if (x instanceof Variable) {
+            c = this.ctx[x.name];
+            
+            if (c) {
+                acc.pop();
+                queue.push(c);
+            }
         }
     }
     
-    // main loop continuation
-    function loop(goals, idx, environment, fbacktrack, level) {
-        
-        if (!goals.length) {
-            trace("FOUND A SOLUTION", level);
-            fsuccess(environment);
-            return fbacktrack;
-        }
-        
-        trace("goals: " + goals + " lvl: " + level, level);
-        
-        var goalSuffix = level;
-        var currentGoal = goals[0];
-        
-        var builtin = builtinPredicates[currentGoal.name + "/" + currentGoal.partlist.list.length];
-        if (typeof (builtin) === "function") {
-            return builtin(loop, goals, idx, cloneEnv(environment), fbacktrack, level);
-        }
-        
-        // searching for next matching rule
-        for (var i = idx, db = cdb[currentGoal.name]; i < db.length; i++) {
-            var rule = db[i];
-            if (rule.head.name != currentGoal.name) continue;
-            trace('try db[' + i + '] = ' + rule.head, level);
-            var renamedHead = new Term(rule.head.name, renameVariables(rule.head.partlist.list, goalSuffix, currentGoal));
-            var env2 = unify(currentGoal, renamedHead, environment);
-            if (env2 == null) continue;
-            // backtracking continuation
-            
-            /// CURRENT BACKTRACK CONTINUATION  ///
-            /// WHEN INVOKED BACKTRACKS TO THE  ///
-            /// NEXT RULE IN THE PREVIOUS LEVEL ///
-            var fCurrentBT = function (cut) {
-                
-                var b = fbacktrack;
-                trace("idx = " + idx, level);
-                if (cut > 0) {
-                    trace("cutting goals: " + goals, level);
-                    return fbacktrack && fbacktrack(cut - 1);
-                } else {
-                    trace(idx === 0 ? "<<<" : "|||", level);
-                    return loop(goals, i + 1, environment, fbacktrack, level); // ??
-                }
-            };
-            
-            if (rule.body == null) {
-                var nextGoals = goals.slice(1); // automatically succeeds
-                return function sameLevel() {
-                    return loop(nextGoals, 0, env2, fCurrentBT, level);
-                };
-            } else {
-                var newFirstGoals = renameVariables(rule.body.list, goalSuffix, renamedHead);
-                var nextGoals = newFirstGoals.concat(goals.slice(1));
-                
-                if (nextGoals.length === 1) {
-                    return function levelDownTail() {
-                        trace("tail>>>", level);
-                        
-                        
-                        // Tail-recursion black magic
-                        // Still leaks though
-                        // Living remainder to rewrite variable binding mechanism
-                        if (level > 1) {
-                            var env3 = [], referencingVariableNames = [], v, v2;
-                            
-                            for (var key in env2) {
-                                if (Object.prototype.hasOwnProperty.call(env2, key)) {
-                                    v = env2[key];
-                                    if (v instanceof Variable && env2[v.name] instanceof Variable) {
-                                        v2 = env2[v.name];
-                                        //console.log("SHORT-CUTTING: " + key + "->" + v + "->" + v2 + " => " + key + " -> " + v2);
-                                        env3[key] = v2;
-                                    }
-                                }
-                            }
-                            
-                            for (var key in env2) {
-                                if (Object.prototype.hasOwnProperty.call(env2, key) && key.split(".")[1] == level) {
-                                    //console.log("RETAINING THIS-LEVEL: " + key);
-                                    env3[key] = env2[key];
-                                }
-                            }
-                            
-                            env2 = env3;
+    queue = acc;
+    acc = [];
+    
+    for (var i = queue.length - 1; i >= 0; i--) {
+        x = queue[i];
+        if (x instanceof Term) {
+            var c = x.partlist.list.length,
+                l = acc.splice(-c, c);
+            acc.push(new Term(x.name, l));
+        } else acc.push(x);
+    }
+    
+    return acc[0];
+}
 
-                        }
-                        
-                        // skipping backtracking to the same level because it's the last goal
-                        return loop(nextGoals, 0, env2, fbacktrack, level + 1);
-                    };
-                } else {
-                    return function levelDown() {
-                        trace(">>>", level);
-                        return loop(nextGoals, 0, env2, fCurrentBT, level + 1);
-                    };
+BindingContext.prototype.unify = function unify(x, y) {
+    var toSet = {}, p, acc = [];
+    
+    x = this.value(x);
+    y = this.value(y);
+    
+    var queue = [{ x: x, y: y }];
+    while (queue.length) {
+        p = queue.pop();
+        x = p.x;
+        y = p.y;
+        
+        if (x instanceof Term && y instanceof Term) { // no need to unwind if we are not unifying two terms
+            if (x.name == y.name && x.partlist.list.length == y.partlist.list.length) {
+                for (var i = 0, len = x.partlist.list.length; i < len; i++) {
+                    queue.push({ x: x.partlist.list[i], y: y.partlist.list[i] });
+                }
+            } else {
+                trace("" + x + " /= " + y);
+                return false;
+            }
+        } else {
+            acc.push(p);
+        }
+    }
+
+    queue = acc;    
+    for (var i = queue.length - 1; i >= 0; i--) {
+        p = queue[i];
+        x = p.x;
+        y = p.y;        
+        
+        if (x instanceof Variable) {
+            x.name !== "_" && (toSet[x.name] = y);     
+        } else if (y instanceof Variable) {
+            y.name !== "_" && (toSet[y.name] = x);            
+        } else if (x instanceof Atom || y instanceof Atom) {
+            if (!(x instanceof Atom && y instanceof Atom && x.name == y.name)) {                
+                return false;
+            }
+        } else {
+            throw "unexpected types in bind()";
+            //return false; // actually throw
+        }
+    }
+    
+    // binding variables only if x indeed unifies with y
+    for (var key in toSet) {
+        if (Object.prototype.hasOwnProperty.call(toSet, key)) {
+            this.bind(key, toSet[key]);
+        }
+    }
+    
+    return true;
+}
+
+BindingContext.prototype.tail = function tail() {
+    var tailContext = new BindingContext(), val, part;
+
+    for (var varName in this.ctx) {
+        if (Object.prototype.hasOwnProperty.call(this.ctx, varName)) {
+            // find any references to variables explicitly bound in this context
+            val = this.ctx[varName];
+            tailContext.bind(varName, val);
+            for (var varName2 in this.parentCtx) {
+                part = this.parentCtx[varName2];
+                if (part instanceof Variable && part.name === varName) {
+                    trace(varName + " is referenced to by " + varName2 + " in a parent context")
+                    tailContext.bind(varName2, val);
                 }
             }
+
         }
-        trace("___", level);
-        return fbacktrack;
-    }    ;
+    }
     
-    
-    return loop(originalGoals, 0, [], null, 1);
-}
+    return tailContext;    
+};
