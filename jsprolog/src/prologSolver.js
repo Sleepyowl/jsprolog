@@ -276,7 +276,7 @@ BindingContext.prototype.bind = function (name, value) {
 };
 
 BindingContext.prototype.value = function value(x) {
-    var queue = [x], acc = [], c;
+    var queue = [x], acc = [], c, i;
     
     while (queue.length) {
         x = queue.pop();
@@ -295,15 +295,15 @@ BindingContext.prototype.value = function value(x) {
     
     queue = acc;
     acc = [];
-    
-    for (var i = queue.length - 1; i >= 0; i--) {
+    i = queue.length;
+    while(i--) {
         x = queue[i];
         if (x instanceof Term) {
             var c = x.partlist.list.length,
                 l = acc.splice(-c, c);
             acc.push(new Term(x.name, l));
         } else acc.push(x);
-    }
+    };
     
     return acc[0];
 }
@@ -395,5 +395,5 @@ BindingContext.prototype.cutTail = function cutTail(goal) {
             }
         }
     }
-    return this;
+    return cutTailContext;
 };
