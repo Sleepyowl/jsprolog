@@ -8,6 +8,15 @@ var Partlist = AST.Partlist;
 var Body = AST.Body;
 var Rule = AST.Rule;
 
+
+var options = {
+    experimental: {
+        tailRecursion: false
+    }
+};
+
+exports.options = options;
+
 /**
  * executes a query agains the database
  * @param db compiled rule database
@@ -95,7 +104,7 @@ var builtinPredicates = {
  */
 function getdtreeiterator(originalGoals, rulesDB, fsuccess) {
     "use strict";
-    var cdb = {};
+    var cdb = {}, tailEnabled = options.experimental.tailRecursion;
     
     // maybe move to parser level, idk
     for (var i = 0, name, rule; i < rulesDB.length; i++) {
@@ -147,30 +156,32 @@ function getdtreeiterator(originalGoals, rulesDB, fsuccess) {
                 }
             };
             
-            var nextGoals = goals.slice(1); // current head succeeded
-            currentGoalVarNames = varNames([currentGoal]);
+            var nextGoals = goals.slice(1); // current head succeeded            
+            
 
             if (rule.body != null) {
                 nextGoals = currentBindingContext.renameVariables(rule.body.list, renamedHead, varMap).concat(nextGoals);               
             }
             
-            
-            nextGoalsVarNames = varNames(nextGoals);
-            existing = nextGoalsVarNames.concat(currentGoalVarNames).map(function (e) { return e.name; });
-            
-            // If a new variable is not in the current goals -- remove it
-            if (parentBindingContext) {
-                currentBindingContext.varNames
+            if (tailEnabled) {
+                currentGoalVarNames = varNames([currentGoal]);
+                nextGoalsVarNames = varNames(nextGoals);
+                existing = nextGoalsVarNames.concat(currentGoalVarNames).map(function (e) { return e.name; });
+                
+                // If a new variable is not in the current goals -- remove it
+                if (parentBindingContext) {
+                    currentBindingContext.varNames
                         .filter(function (e) { return existing.indexOf(e) === -1 && parentBindingContext.varNames.indexOf(e) === -1; })
                         .forEach(function (e) {
-                    currentBindingContext.unbind(e);
-                });
+                        currentBindingContext.unbind(e);
+                    });
+                }
             }
                         
             if (rule.body != null && nextGoals.length === 1) {                
                 // recursive call in a tail position: reusing parent variables
                 // TODO: detect it before renaming variables in goals
-                if (currentGoalVarNames.length === nextGoalsVarNames.length) {
+                if (tailEnabled && currentGoalVarNames.length === nextGoalsVarNames.length) {
                     for (var vn in varMap) {
                         for (var cn, nn, k = currentGoalVarNames.length; k--;) {
                             cn = currentGoalVarNames[k];
