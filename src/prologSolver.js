@@ -1,4 +1,4 @@
-﻿var AST = require('./prologAST.js');
+﻿var AST = require('./prologAST');
 
 var Part = AST.Part;
 var Variable = AST.Variable;

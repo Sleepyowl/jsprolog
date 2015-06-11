@@ -84,4 +84,32 @@ describe("prolog parser", function () {
         expect(rules[0].body.list[2].name).toBe("fail");
         expect(rules[0].body.list[2].partlist.list.length).toBe(0);
     });
+
+    it("handles new lines and tabs properly", function () {
+        var db = "parent(X,Y):-\nchild(Y,X).\nsibling(X,Y)\n:-\n\tchild(X,Z),child(Y,Z).";
+        var rules = prologParser.parse(db);
+        expect(rules.length).toBe(2);
+        
+        expect(rules[0] instanceof prologAST.Rule).toBeTruthy();
+        expect(rules[0].head instanceof prologAST.Term).toBeTruthy();
+        expect(rules[0].head.name).toBe("parent");
+        
+        expect(rules[1] instanceof prologAST.Rule).toBeTruthy();
+        expect(rules[1].head instanceof prologAST.Term).toBeTruthy();
+        expect(rules[1].head.name).toBe("sibling");
+    });
+
+    it("handles line comments properly", function () {
+        var db = "parent(X,Y):-\nchild(Y,X).\n  % a comment\nsibling(X,Y)\n:-\n\n\tchild(X,Z),child(Y,Z).";
+        var rules = prologParser.parse(db);
+        expect(rules.length).toBe(2);
+        
+        expect(rules[0] instanceof prologAST.Rule).toBeTruthy();
+        expect(rules[0].head instanceof prologAST.Term).toBeTruthy();
+        expect(rules[0].head.name).toBe("parent");
+        
+        expect(rules[1] instanceof prologAST.Rule).toBeTruthy();
+        expect(rules[1].head instanceof prologAST.Term).toBeTruthy();
+        expect(rules[1].head.name).toBe("sibling");
+    });
 });

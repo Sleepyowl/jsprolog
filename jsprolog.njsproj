@@ -31,8 +31,8 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Gruntfile.js" />
-    <Compile Include="tests\prologParserSpec.js" />
-    <Compile Include="tests\prologSolverSpec.js" />
+    <Compile Include="specs\prologParserSpec.js" />
+    <Compile Include="specs\prologSolverSpec.js" />
     <Compile Include="src\jsprolog.js" />
     <Compile Include="src\prologAST.js" />
     <Compile Include="src\prologParser.js" />
@@ -41,8 +41,8 @@
     <Content Include="README.md" />
   </ItemGroup>
   <ItemGroup>
+    <Folder Include="specs\" />
     <Folder Include="src\" />
-    <Folder Include="tests\" />
   </ItemGroup>
   <!-- Do not delete the following Import Project.  While this appears to do nothing it is a marker for setting TypeScript properties before our import that depends on them. -->
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\TypeScript\Microsoft.TypeScript.targets" Condition="False" />

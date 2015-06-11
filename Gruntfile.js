@@ -23,7 +23,14 @@
                 options: {
                     baseUrl: 'build',
                     out: "jsprolog.js",
-                    name: "jsprolog"
+                    name: "jsprolog",                    
+                }
+            },
+            compileDev: {
+                options: {
+                    baseUrl: 'build',
+                    out: "jsprolog.developer.js",
+                    name: "jsprolog",                    
                 }
             }
         }
@@ -32,5 +39,5 @@
     grunt.loadNpmTasks('grunt-jasmine-node');
     grunt.loadNpmTasks('grunt-contrib-requirejs');
     grunt.loadNpmTasks('grunt-execute');
-    grunt.registerTask('default', ["jasmine_node", "execute:convertToAMD", 'requirejs:compile']);
+    grunt.registerTask('default', ["jasmine_node", "execute:convertToAMD", 'requirejs']);
 };

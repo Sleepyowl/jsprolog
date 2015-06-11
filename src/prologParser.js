@@ -1,4 +1,4 @@
-﻿var AST = require('./prologAST.js');
+﻿var AST = require('./prologAST');
 
 var Part = AST.Part;
 var Variable = AST.Variable;
@@ -19,9 +19,14 @@ function Tokeniser(string) {
 Tokeniser.prototype.consume = function consume() {
     if (this.type == "eof") return;
     // Eat any leading WS
-    var r = this.remainder.match(/^\s*(.*)$/);
+    var r = this.remainder.match(/^\s*/);
     if (r) {
-        this.remainder = r[1];
+        this.remainder = this.remainder.substring(r[0].length);
+    }
+    
+    r = this.remainder.match(/^([%].*)[\n\r]+/);
+    if (r) {
+        this.remainder = this.remainder.substring(r[0].length);
     }
     
     if (this.remainder == "") {
@@ -30,52 +35,52 @@ Tokeniser.prototype.consume = function consume() {
         return;
     }
     
-    r = this.remainder.match(/^([\(\)\.,\[\]\|\!]|\:\-)(.*)$/);
+    r = this.remainder.match(/^([\(\)\.,\[\]\|\!]|\:\-)/);
     if (r) {
-        this.remainder = r[2];
+        this.remainder = this.remainder.substring(r[0].length);
         this.current = r[1];
         this.type = "punc";
         return;
     }
     
-    r = this.remainder.match(/^([A-Z_][a-zA-Z0-9_]*)(.*)$/);
+    r = this.remainder.match(/^[A-Z_][a-zA-Z0-9_]*/);
     if (r) {
-        this.remainder = r[2];
-        this.current = r[1];
+        this.remainder = this.remainder.substring(r[0].length);
+        this.current = r[0];
         this.type = "var";
         return;
     }
     
     // URLs in curly-bracket pairs
-    r = this.remainder.match(/^(\{[^\}]*\})(.*)$/);
+    r = this.remainder.match(/^\{[^\}]*\}/);
     if (r) {
-        this.remainder = r[2];
-        this.current = r[1];
+        this.remainder = this.remainder.substring(r[0].length);
+        this.current = r[0];
         this.type = "id";
         return;
     }
     
     // Quoted strings
-    r = this.remainder.match(/^("[^"]*")(.*)$/);
+    r = this.remainder.match(/^"[^"]*"/);
     if (r) {
-        this.remainder = r[2];
-        this.current = r[1];
+        this.remainder = this.remainder.substring(r[0].length); 
+        this.current = r[0];
         this.type = "id";
         return;
     }
     
-    r = this.remainder.match(/^([a-zA-Z0-9][a-zA-Z0-9_]*)(.*)$/);
+    r = this.remainder.match(/^[a-zA-Z0-9][a-zA-Z0-9_]*/);
     if (r) {
-        this.remainder = r[2];
-        this.current = r[1];
+        this.remainder = this.remainder.substring(r[0].length);
+        this.current = r[0];
         this.type = "id";
         return;
     }
     
-    r = this.remainder.match(/^(-[0-9][0-9]*)(.*)$/);
+    r = this.remainder.match(/^-[0-9][0-9]*/);
     if (r) {
-        this.remainder = r[2];
-        this.current = r[1];
+        this.remainder = this.remainder.substring(r[0].length);
+        this.current = r[0];
         this.type = "id";
         return;
     }
