@@ -2,9 +2,22 @@
 var Solver = require("../src/prologSolver.js");
 // TODO: remove Parser dependency ?
 var Parser = require('../src/prologParser.js');
-Solver.options.maxIterations = 1000;
+
 
 describe("prolog solver", function () {
+    
+    var maxIterations = Solver.options.maxIterations,
+        tailRecursion = Solver.options.experimental.tailRecursion;
+
+    beforeEach(function () {        
+        Solver.options.maxIterations = 1000;
+        Solver.options.experimental.tailRecursion = true;
+    });
+    
+    afterEach(function () { 
+        Solver.options.maxIterations = maxIterations;
+        Solver.options.experimental.tailRecursion = tailRecursion;
+    });
 
     it("solves simple fact", function () {
         var db = Parser.parse("male(bob).");

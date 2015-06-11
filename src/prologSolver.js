@@ -121,7 +121,7 @@ function getdtreeiterator(originalGoals, rulesDB, fsuccess) {
             cdb[name] = [rule];
         }
     }
-    
+
     // main loop continuation
     function loop(goals, idx, parentBindingContext, fbacktrack) {
         
@@ -129,7 +129,7 @@ function getdtreeiterator(originalGoals, rulesDB, fsuccess) {
             fsuccess(parentBindingContext);
             return fbacktrack;
         }
-        
+
         var currentGoal = goals[0],
             currentBindingContext = new BindingContext(parentBindingContext),
             currentGoalVarNames, rule, varMap, renamedHead, currentGoalVarNames, nextGoalsVarNames, existing;
@@ -146,7 +146,7 @@ function getdtreeiterator(originalGoals, rulesDB, fsuccess) {
             renamedHead = new Term(rule.head.name, currentBindingContext.renameVariables(rule.head.partlist.list, currentGoal, varMap));
             if (!currentBindingContext.unify(currentGoal, renamedHead)) {
                 continue;
-            }
+            }            
             
             /// CURRENT BACKTRACK CONTINUATION  ///
             /// WHEN INVOKED BACKTRACKS TO THE  ///
@@ -154,9 +154,9 @@ function getdtreeiterator(originalGoals, rulesDB, fsuccess) {
             var fCurrentBT = function (cut) {
                 
                 var b = fbacktrack;
-                if (cut > 0) {
+                if (cut > 0) {             
                     return fbacktrack && fbacktrack(cut - 1);
-                } else {
+                } else {                    
                     return loop(goals, i + 1, parentBindingContext, fbacktrack);
                 }
             };
@@ -214,7 +214,7 @@ function getdtreeiterator(originalGoals, rulesDB, fsuccess) {
                 };
             }
             
-        }
+        }        
         return fbacktrack;
     }    ;
     
@@ -383,20 +383,20 @@ BindingContext.prototype.unify = function unify(x, y) {
     }
     
     queue = acc;
-    for (var i = queue.length - 1; i >= 0; i--) {
+    for (var i = queue.length; i--;) {
         p = queue[i];
         x = p.x;
         y = p.y;
         
         if (x instanceof Variable) {
-            if (x.name === "_") { break; }
+            if (x.name === "_") { continue; }
             if (x.name in toSet && toSet[x.name].name !== y.name) {
                 return false;
             }
             toSet[x.name] = y;
             
         } else if (y instanceof Variable) {
-            if (y.name === "_") { break; }
+            if (y.name === "_") { continue; }
             if (y.name in toSet && toSet[y.name].name !== x.name) {
                 return false;
             }
