@@ -10,6 +10,7 @@ var Rule = AST.Rule;
 
 
 var options = {
+    maxIterations: null,
     experimental: {
         tailRecursion: false
     }
@@ -41,8 +42,12 @@ exports.query = function query(db, query, outVars) {
         }
     });
     
+    var i = 0;
     while (cont != null) {
         cont = cont();
+        if (typeof (options.maxIterations) === "number" && options.maxIterations <= ++i) {
+            throw "iteration limit reached";
+        } 
     }
     
     return proven;
@@ -277,14 +282,17 @@ BindingContext.prototype.renameVariables = function renameVariables(list, parent
     }
     
     // process depth-first queue
-    var vars = varMap || {};
-    vars._ = new Variable("_");
+    var vars = varMap || {}, _ = new Variable("_");
     for (var i = queue.length - 1; i >= 0; i--) {
         list = queue[i];
         if (list instanceof Atom) {
             out.push(list);
         } else if (list instanceof Variable) {
-            v = vars[list.name] || (vars[list.name] = new Variable("_G" + (globalGoalCounter++)));
+            if (list.name === "_") {
+                v = _;
+            } else {
+                v = vars[list.name] || (vars[list.name] = new Variable("_G" + (globalGoalCounter++)));
+            }
             out.push(v);
         } else if (list instanceof Term) {
             clen = list.partlist.list.length;
@@ -355,15 +363,11 @@ BindingContext.prototype.value = function value(x) {
 
 BindingContext.prototype.unify = function unify(x, y) {
     var toSet = {}, p, acc = [];
-    
-    x = this.value(x);
-    y = this.value(y);
-    
     var queue = [{ x: x, y: y }];
     while (queue.length) {
         p = queue.pop();
-        x = p.x;
-        y = p.y;
+        x = this.value(p.x);
+        y = this.value(p.y);        
         
         if (x instanceof Term && y instanceof Term) { // no need to unwind if we are not unifying two terms
             if (x.name == y.name && x.partlist.list.length == y.partlist.list.length) {
@@ -374,7 +378,7 @@ BindingContext.prototype.unify = function unify(x, y) {
                 return false;
             }
         } else {
-            acc.push(p);
+            acc.push({ x: x, y: y });
         }
     }
     
@@ -403,7 +407,6 @@ BindingContext.prototype.unify = function unify(x, y) {
             }
         } else {
             throw "unexpected types in bind()";
-            //return false; // actually throw
         }
     }
     
