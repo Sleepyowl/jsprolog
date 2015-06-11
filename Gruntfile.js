@@ -31,6 +31,7 @@
                     baseUrl: 'build',
                     out: "jsprolog.developer.js",
                     name: "jsprolog",                    
+                    optimize: 'none'
                 }
             }
         }
