@@ -12,7 +12,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>38f88800-e2a9-4217-9063-766842195825</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>src\main.js</StartupFile>
+    <StartupFile>src\jsprolog.js</StartupFile>
     <StartWebBrowser>False</StartWebBrowser>
     <SearchPath>
     </SearchPath>
@@ -33,7 +33,7 @@
     <Compile Include="Gruntfile.js" />
     <Compile Include="tests\prologParserSpec.js" />
     <Compile Include="tests\prologSolverSpec.js" />
-    <Compile Include="src\main.js" />
+    <Compile Include="src\jsprolog.js" />
     <Compile Include="src\prologAST.js" />
     <Compile Include="src\prologParser.js" />
     <Compile Include="src\prologSolver.js" />

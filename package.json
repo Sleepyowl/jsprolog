@@ -5,7 +5,9 @@
     "keywords": [ "prolog" ],
     "homepage": "https://github.com/sleepyowl/jsprolog",
     "bugs": "https://github.com/sleepyowl/jsprolog/issues",
-    "main": "src/main.js",
+    "license": "MIT",
+    "files": ["src"],
+    "main": "src/jsprolog.js",
     "author": {
         "name": "Dmitry Soloviev",
         "email": "dmitry.soloviev@outlook.com"
