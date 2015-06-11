@@ -36,15 +36,15 @@ exports.query = function query(db, query, outVars) {
     var vars = varNames(query.list);
     var proven = false;
     
-    var cont = getdtreeiterator(query.list, db, function (bindingContext) {
+    var cont = getdtreeiterator(query.list, db, function (result) {
         proven = true;
         if (outVars && typeof (outVars) === "object") {
             vars.forEach(function (v) {
-                var name = v.name, val = (bindingContext.value(new Variable(name))).toString();
-                if (!(name in outVars)) {
-                    outVars[name] = [];
+                v = v.name;
+                if (!(v in outVars)) {
+                    outVars[v] = [];
                 }
-                outVars[name].push(val);
+                outVars[v].push(result[v]);
             });
         }
     });
@@ -89,7 +89,7 @@ var builtinPredicates = {
     "fail/0": function (loop, goals, idx, bindingContext, fbacktrack, level) {
         return fbacktrack; // FAIL
     },
-    "call/1": function (loop, goals, idx, bindingContext, fbacktrack, level) {       
+    "call/1": function (loop, goals, idx, bindingContext, fbacktrack, level) {
         var first = bindingContext.value(goals[0].partlist.list[0]);
         if (!(first instanceof Term)) {
             return fbacktrack; // FAIL
@@ -143,10 +143,9 @@ function getdtreeiterator(originalGoals, rulesDB, fsuccess) {
         
         // searching for next matching rule
         for (var i = idx, db = cdb[currentGoal.name]; i < db.length; i++) {
-            var rule = db[i];            
-            
-            var renamedHead = new Term(rule.head.name, currentBindingContext.renameVariables(rule.head.partlist.list, currentGoal));
-            
+            var rule = db[i];
+            var varMap = {};
+            var renamedHead = new Term(rule.head.name, currentBindingContext.renameVariables(rule.head.partlist.list, currentGoal, varMap));
             if (!currentBindingContext.unify(currentGoal, renamedHead)) {
                 continue;
             }
@@ -167,15 +166,39 @@ function getdtreeiterator(originalGoals, rulesDB, fsuccess) {
             };
             
             if (rule.body == null) {
+                // If a new variable is not in the current goals -- remove it
+                if (parentBindingContext) {
+                    var existing = varNames(goals).map(function (e) { return e.name; });
+                    currentBindingContext.varNames
+                        .filter(function (e) { return existing.indexOf(e) === -1 && parentBindingContext.varNames.indexOf(e) === -1; })
+                        .forEach(function (e) {
+                        currentBindingContext.unbind(e);
+                    });
+                }
+                
                 var nextGoals = goals.slice(1); // no body = goal is met
                 return function nextGoal() {
                     return loop(nextGoals, 0, currentBindingContext, fCurrentBT, level);
                 };
-            } else {                
-                var newFirstGoals = currentBindingContext.renameVariables(rule.body.list, renamedHead);
+            } else {
+                var newFirstGoals = currentBindingContext.renameVariables(rule.body.list, renamedHead, varMap);
                 var nextGoals = newFirstGoals.concat(goals.slice(1));
                 
                 if (nextGoals.length === 1) {
+                    
+                    // If a new variable is not in the next goals -- remove it
+                    if (parentBindingContext) {
+                        var existing = varNames(nextGoals).map(function (e) { return e.name; });
+                        currentBindingContext.varNames
+                        .filter(function (e) { return existing.indexOf(e) === -1 && parentBindingContext.varNames.indexOf(e) === -1; })
+                        .forEach(function (e) {
+                            
+                            currentBindingContext.unbind(e);
+                        });
+                    }
+                    
+                    // TODO: if the next goal has the same number of variables as the current goal, we can probably reuse them                    
+                    
                     return function levelDownTail() {
                         // skipping backtracking to the same level because it's the last goal                        
                         // TODO: removing extra stuff from binding context                        
@@ -191,23 +214,36 @@ function getdtreeiterator(originalGoals, rulesDB, fsuccess) {
         return fbacktrack;
     }    ;
     
-    
-    return loop(originalGoals, 0, null, null, 1);
+    var rootContext = new BindingContext();
+    var map = {};
+    var _fs = fsuccess;
+    fsuccess = function (bindingContext) {
+        var result = {};
+        for (var key in map) {
+            result[key] = bindingContext.value(map[key]).toString();
+        }
+        _fs(result);
+    };
+    return loop(rootContext.renameVariables(originalGoals, null, map), 0, null, null, 1);
 };
 
 
 /**
  * creates binding context for variables
  */
-function BindingContext(parentContext) {
-    this.parent = parentContext;   
-    this.parentCtx = parentContext && parentContext.ctx || null;
-    this.ctx = Object.create(this.parentCtx);    
-    this.level = (parentContext && parentContext.level || 0) + 1;
+function BindingContext(parent) {
+    var ctx = this.ctx = {};//Object.create(this.parentCtx);     // new unification algorithm disallows this
+    
+    this.level = (parent && parent.level || 0) + 1;
     
     // to avoid for ... in which is way too slow
-    this.varNames = [];
-    this.allVarNames = parentContext && parentContext.varNames.slice(0) || [];
+    this.varNames = parent && parent.varNames.slice(0) || [];
+    if (parent) {
+        for (var n, vn = parent.varNames, i = vn.length; i--;) {
+            n = vn[i];
+            ctx[n] = parent.ctx[n];
+        }
+    }
 }
 
 BindingContext.prototype.toString = function toString() {
@@ -223,13 +259,15 @@ BindingContext.prototype.toString = function toString() {
 /**
  * renames variables to make sure names are unique
  */
-BindingContext.prototype.renameVariables = function renameVariables(list, parent) {
+var globalGoalCounter = 0;
+BindingContext.prototype.renameVariables = function renameVariables(list, parent, varMap) {
     var out = [], 
         queue = [],
         stack = [list],
         clen,
         tmp,
-        level = this.level;
+        level = this.level,
+        v;
     
     // prepare depth-first queue
     while (stack.length) {
@@ -243,12 +281,15 @@ BindingContext.prototype.renameVariables = function renameVariables(list, parent
     }
     
     // process depth-first queue
+    var vars = varMap || {};
+    vars._ = new Variable("_");
     for (var i = queue.length - 1; i >= 0; i--) {
         list = queue[i];
         if (list instanceof Atom) {
             out.push(list);
-        } else if (list instanceof Variable) {
-            out.push(list.name === "_" ?  new Variable("_") : new Variable(list.name + "." + level));
+        } else if (list instanceof Variable) {            
+            v = vars[list.name] || (vars[list.name] = new Variable("_G" + (globalGoalCounter++)));
+            out.push(v);            
         } else if (list instanceof Term) {
             clen = list.partlist.list.length;
             tmp = new Term(list.name, out.splice(-clen, clen));
@@ -263,15 +304,24 @@ BindingContext.prototype.renameVariables = function renameVariables(list, parent
     return out;
 }
 
-BindingContext.prototype.bind = function (name, value) {    
-    if (name in (this.ctx)) {// sanity check
-        throw "variable " + name + " is already bound in the context!";
-    }    
+BindingContext.prototype.bind = function (name, value) {
+    //if (name in (this.ctx)) {// sanity check
+    //    throw "variable " + name + " is already bound in the context!";
+    //}    
     this.ctx[name] = value;
     
     // to avoid for ... in which is way too slow
     this.varNames.push(name);
-    this.allVarNames.push(name);
+};
+
+BindingContext.prototype.unbind = function (name) {
+    //if (name in (this.ctx)) {// sanity check
+    //    throw "variable " + name + " is already bound in the context!";
+    //}    
+    delete this.ctx[name];
+    
+    // to avoid for ... in which is way too slow
+    this.varNames.splice(this.varNames.indexOf(name), 1);
 };
 
 BindingContext.prototype.value = function value(x) {
@@ -295,14 +345,14 @@ BindingContext.prototype.value = function value(x) {
     queue = acc;
     acc = [];
     i = queue.length;
-    while(i--) {
+    while (i--) {
         x = queue[i];
         if (x instanceof Term) {
             var c = x.partlist.list.length,
                 l = acc.splice(-c, c);
             acc.push(new Term(x.name, l));
         } else acc.push(x);
-    };
+    }    ;
     
     return acc[0];
 }
@@ -324,7 +374,7 @@ BindingContext.prototype.unify = function unify(x, y) {
                 for (var i = 0, len = x.partlist.list.length; i < len; i++) {
                     queue.push({ x: x.partlist.list[i], y: y.partlist.list[i] });
                 }
-            } else {                
+            } else {
                 return false;
             }
         } else {
@@ -339,9 +389,18 @@ BindingContext.prototype.unify = function unify(x, y) {
         y = p.y;
         
         if (x instanceof Variable) {
-            x.name !== "_" && (toSet[x.name] = y);
+            if (x.name === "_") { break; }
+            if (x.name in toSet && toSet[x.name].name !== y.name) {
+                return false;
+            }
+            toSet[x.name] = y;
+            
         } else if (y instanceof Variable) {
-            y.name !== "_" && (toSet[y.name] = x);
+            if (y.name === "_") { break; }
+            if (y.name in toSet && toSet[y.name].name !== x.name) {
+                return false;
+            }
+            toSet[y.name] = x;
         } else if (x instanceof Atom || y instanceof Atom) {
             if (!(x instanceof Atom && y instanceof Atom && x.name == y.name)) {
                 return false;
@@ -353,9 +412,22 @@ BindingContext.prototype.unify = function unify(x, y) {
     }
     
     // binding variables only if x indeed unifies with y
+    // TODO: cleanup
+    var varmap = {};
+    for (var key in toSet) {
+        if (Object.prototype.hasOwnProperty.call(toSet, key)) {
+            if (toSet[key] instanceof Variable) {
+                varmap[toSet[key].name] = key;
+                toSet[key].name = key; // renaming variables (it's guaranteed that variable with the same name is the same instance within rule, see rename)
+            }
+        }
+    }
+    
     for (var key in toSet) { // consider replacing for in with a regular for
         if (Object.prototype.hasOwnProperty.call(toSet, key)) {
-            this.bind(key, toSet[key]);
+            if (!(toSet[key] instanceof Variable)) {
+                this.bind(varmap[key] || key, toSet[key]);
+            }
         }
     }
     
