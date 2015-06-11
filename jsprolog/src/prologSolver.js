@@ -178,9 +178,8 @@ function getdtreeiterator(originalGoals, rulesDB, fsuccess) {
                 if (nextGoals.length === 1) {
                     return function levelDownTail() {
                         // skipping backtracking to the same level because it's the last goal                        
-                        // removing parent from binding context, making grand-parent its parent
-                        // TODO: there's a problem with the possibility of variables in the parent context being referenced by ancestor contexts, write tests for that and fix
-                        return loop(nextGoals, 0, currentBindingContext.cutTail(goals), fbacktrack, level + 1);
+                        // TODO: removing extra stuff from binding context                        
+                        return loop(nextGoals, 0, currentBindingContext, fbacktrack, level + 1);
                     };
                 } else {
                     return function levelDown() {
@@ -362,38 +361,3 @@ BindingContext.prototype.unify = function unify(x, y) {
     
     return true;
 }
-
-/**
- * removes variables from the context that are not referenced by parent context
- */
-BindingContext.prototype.cutTail = function cutTail(goal) {
-    var ctx = this.ctx, candidates, v, n, cutTailContext = this, parent = this.parent;
-    if (parent && parent.parentCtx) {        
-        cutTailContext = new BindingContext(parent);        
-        candidates = varNames(goal).filter(function (name) { return name in parent.ctx; });
-        
-        // copy current level
-        for (var i = 0, vn = this.varNames, len = vn.length; i < len; ++i) {
-            n = vn[i];
-            cutTailContext.ctx[n] = ctx[n];
-        }
-        
-        // copy parents that are not in candidates
-        for (var i = 0, vn = parent.varNames, len = vn.length; i < len; ++i) {
-            n = vn[i];
-            if (candidates.indexOf(n) === -1) {
-                cutTailContext.ctx[n] = parent.ctx[n];
-            }
-        }
-
-        // process links to the candidates (should be any variables linked to a variable in the same context... right?)
-        for (var i = 0, vn = parent.allVarNames, len = vn.length; i < len; ++i) {
-            n = vn[i];
-            v = parent.parentCtx[n]; 
-            if (v instanceof Variable && candidates.indexOf(v.name) !== -1) {
-                cutTailContext.ctx[n] = parent.ctx[v.name];
-            }
-        }
-    }
-    return cutTailContext;
-};
