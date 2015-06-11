@@ -6,16 +6,12 @@
         pkg: grunt.file.readJSON('package.json'),
         jasmine_node: {
             options: {
-                forceExit: true,
-                match: '.',
-                matchall: false,
-                extensions: 'js',
-                specNameMatcher: 'spec'
+                forceExit: true,                
             },
-            all: ['specs/']
+            all: []
         },
     });
 
     grunt.loadNpmTasks('grunt-jasmine-node');
-    grunt.registerTask('default', [ "jasmine_node"]);
+    grunt.registerTask('default',"jasmine_node");
 };

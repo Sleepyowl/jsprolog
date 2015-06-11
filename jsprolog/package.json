@@ -1,15 +1,22 @@
 {
-  "name": "jsprolog",
-  "version": "0.0.0",
-  "description": "jsprolog",
-  "main": "src/main.js",
-  "author": {
-    "name": "Dmitry Soloviev",
-    "email": "dmitry.soloviev@outlook.com"
-  },
-  "dependencies": {},
-  "devDependencies": {
-    "grunt": "^0.4.5",
-    "grunt-jasmine-node": "^0.3.1"
-  }
+    "name": "jsprolog",
+    "version": "0.0.0",
+    "description": "A simple Prolog interpreter written with javascript (ECMAScript5).",
+    "keywords": [ "prolog" ],
+    "homepage": "https://github.com/sleepyowl/jsprolog",
+    "bugs": "https://github.com/sleepyowl/jsprolog/issues",
+    "main": "src/main.js",
+    "author": {
+        "name": "Dmitry Soloviev",
+        "email": "dmitry.soloviev@outlook.com"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/sleepyowl/jsprolog.git"
+    },
+    "dependencies": { },
+    "devDependencies": {
+        "grunt": "^0.4.5",
+        "grunt-jasmine-node": "^0.3.1"
+    }
 }
