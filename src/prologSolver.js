@@ -126,7 +126,7 @@ function getdtreeiterator(originalGoals, rulesDB, fsuccess) {
         }
         
         // searching for next matching rule        
-        for (var i = idx, db = cdb[currentGoal.name]; i < db.length; i++) {
+        for (var i = idx, db = cdb[currentGoal.name], dblen = db && db.length; i < dblen; i++) {
             rule = db[i];
             varMap = {};
             renamedHead = new Term(rule.head.name, currentBindingContext.renameVariables(rule.head.partlist.list, currentGoal, varMap));

@@ -11,6 +11,13 @@ describe("prolog solver", function () {
         expect(result).toBe(true);
     });
     
+    it("doesn't throw on missing rule", function () {
+        var db = Parser.parse("male(bob).");
+        var query = Parser.parseQuery("female(bob).");
+        var result = Solver.query(db, query);
+        expect(result).toBe(false);
+    });
+    
     it("solves simple fact and returns values", function () {
         var db = Parser.parse("male(bob). male(jacob).");
         var query = Parser.parseQuery("male(X).");
