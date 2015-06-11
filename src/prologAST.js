@@ -80,13 +80,13 @@ Rule.prototype.toString = function toString() {
     return this.head.toString() + (this.body ? " :- " + this.body.toString() + "." : ".");
 };
 
-module.exports.Part = Part;
-module.exports.Variable = Variable;
-module.exports.Atom = Atom;
-module.exports.Term = Term;
-module.exports.Partlist = Partlist;
-module.exports.Body = Body;
-module.exports.Rule = Rule;
+exports.Part = Part;
+exports.Variable = Variable;
+exports.Atom = Atom;
+exports.Term = Term;
+exports.Partlist = Partlist;
+exports.Body = Body;
+exports.Rule = Rule;
 
 
 /*

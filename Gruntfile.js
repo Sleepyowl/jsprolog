@@ -10,8 +10,27 @@
             },
             all: []
         },
+        execute: {
+            convertToAMD: {
+                options: {
+                    args: ['-convert', 'src', 'build']
+                },
+                src: "node_modules/requirejs/bin/r.js"
+            }
+        },
+        requirejs: {
+            compile: {
+                options: {
+                    baseUrl: 'build',
+                    out: "jsprolog.js",
+                    name: "jsprolog"
+                }
+            }
+        }
     });
 
     grunt.loadNpmTasks('grunt-jasmine-node');
-    grunt.registerTask('default',"jasmine_node");
+    grunt.loadNpmTasks('grunt-contrib-requirejs');
+    grunt.loadNpmTasks('grunt-execute');
+    grunt.registerTask('default', ["jasmine_node", "execute:convertToAMD", 'requirejs:compile']);
 };
