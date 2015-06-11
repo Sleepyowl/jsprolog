@@ -47,7 +47,7 @@ exports.query = function query(db, query, outVars) {
         cont = cont();
         if (typeof (options.maxIterations) === "number" && options.maxIterations <= ++i) {
             throw "iteration limit reached";
-        } 
+        }
     }
     
     return proven;
@@ -121,7 +121,7 @@ function getdtreeiterator(originalGoals, rulesDB, fsuccess) {
             cdb[name] = [rule];
         }
     }
-
+    
     // main loop continuation
     function loop(goals, idx, parentBindingContext, fbacktrack) {
         
@@ -129,7 +129,7 @@ function getdtreeiterator(originalGoals, rulesDB, fsuccess) {
             fsuccess(parentBindingContext);
             return fbacktrack;
         }
-
+        
         var currentGoal = goals[0],
             currentBindingContext = new BindingContext(parentBindingContext),
             currentGoalVarNames, rule, varMap, renamedHead, currentGoalVarNames, nextGoalsVarNames, existing;
@@ -146,7 +146,7 @@ function getdtreeiterator(originalGoals, rulesDB, fsuccess) {
             renamedHead = new Term(rule.head.name, currentBindingContext.renameVariables(rule.head.partlist.list, currentGoal, varMap));
             if (!currentBindingContext.unify(currentGoal, renamedHead)) {
                 continue;
-            }            
+            }
             
             /// CURRENT BACKTRACK CONTINUATION  ///
             /// WHEN INVOKED BACKTRACKS TO THE  ///
@@ -154,18 +154,18 @@ function getdtreeiterator(originalGoals, rulesDB, fsuccess) {
             var fCurrentBT = function (cut) {
                 
                 var b = fbacktrack;
-                if (cut > 0) {             
+                if (cut > 0) {
                     return fbacktrack && fbacktrack(cut - 1);
-                } else {                    
+                } else {
                     return loop(goals, i + 1, parentBindingContext, fbacktrack);
                 }
             };
             
             var nextGoals = goals.slice(1); // current head succeeded            
             
-
+            
             if (rule.body != null) {
-                nextGoals = currentBindingContext.renameVariables(rule.body.list, renamedHead, varMap).concat(nextGoals);               
+                nextGoals = currentBindingContext.renameVariables(rule.body.list, renamedHead, varMap).concat(nextGoals);
             }
             
             if (tailEnabled) {
@@ -182,8 +182,8 @@ function getdtreeiterator(originalGoals, rulesDB, fsuccess) {
                     });
                 }
             }
-                        
-            if (rule.body != null && nextGoals.length === 1) {                
+            
+            if (rule.body != null && nextGoals.length === 1) {
                 // recursive call in a tail position: reusing parent variables
                 // TODO: detect it before renaming variables in goals
                 if (tailEnabled && currentGoalVarNames.length === nextGoalsVarNames.length) {
@@ -214,7 +214,7 @@ function getdtreeiterator(originalGoals, rulesDB, fsuccess) {
                 };
             }
             
-        }        
+        }
         return fbacktrack;
     }    ;
     
@@ -223,13 +223,30 @@ function getdtreeiterator(originalGoals, rulesDB, fsuccess) {
     var _fs = fsuccess;
     fsuccess = function (bindingContext) {
         var result = {};
-        for (var key in map) {
-            result[key] = bindingContext.value(map[key]).toString();
-        }
+        for (var key in map) {                        
+            result[key] = termToJsValue(bindingContext.value(map[key]));
+        }        
         _fs(result);
-    };
+    };    
     return loop(rootContext.renameVariables(originalGoals, null, map), 0, null, null);
 };
+
+function termToJsValue(v) {
+    if (v instanceof Atom && v.name.match(/^\d+$/)) {
+        return +v.name;
+    }    
+
+    if (v instanceof Term && v.name === "cons") {
+        var t = [];
+        while (v.partlist && v.name !== "nil") { // we're not expecting malformed lists...
+            t.push(termToJsValue(v.partlist.list[0]));
+            v = v.partlist.list[1];
+        }
+        return t;
+    }
+
+    return v.toString();
+}
 
 
 /**
@@ -367,7 +384,7 @@ BindingContext.prototype.unify = function unify(x, y) {
     while (queue.length) {
         p = queue.pop();
         x = this.value(p.x);
-        y = this.value(p.y);        
+        y = this.value(p.y);
         
         if (x instanceof Term && y instanceof Term) { // no need to unwind if we are not unifying two terms
             if (x.name == y.name && x.partlist.list.length == y.partlist.list.length) {

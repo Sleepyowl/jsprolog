@@ -11,7 +11,7 @@ describe("prolog solver", function () {
 
     beforeEach(function () {        
         Solver.options.maxIterations = 1000;
-        Solver.options.experimental.tailRecursion = true;
+        Solver.options.experimental.tailRecursion = false; // Alas, it breaks list contatenation
     });
     
     afterEach(function () { 
@@ -133,7 +133,7 @@ describe("prolog solver", function () {
 
         expect(result).toBeTruthy();                
         expect(out.X).toEqual(["a", "a", "a", "b", "b", "b", "c", "c", "c"]);
-        expect(out.Y).toEqual(["1", "2", "3", "1", "2", "3", "1", "2", "3"]);
+        expect(out.Y).toEqual([ 1 ,  2 ,  3 ,  1 ,  2 ,  3 ,  1 ,  2 ,  3 ]);
     });
    
     
@@ -159,11 +159,11 @@ describe("prolog solver", function () {
         result = Solver.query(db, query, out);
         
         expect(result).toBe(true);
-        expect(out.R1[0]).toBe("2");
-        expect(out.R2[0]).toBe("4");
+        expect(out.R1[0]).toBe( 2 );
+        expect(out.R2[0]).toBe( 4 );
         expect(out.C[0]).toBe("blue");
-        expect(out.R1[1]).toBe("4");
-        expect(out.R2[1]).toBe("2");
+        expect(out.R1[1]).toBe( 4 );
+        expect(out.R2[1]).toBe( 2 );
         expect(out.C[1]).toBe("blue");
     });
     
@@ -174,7 +174,7 @@ describe("prolog solver", function () {
         var result;        
         result = Solver.query(db, query, out);
         expect(result).toBeTruthy();
-        expect(out.L).toEqual(['b','c','one','two','tree']);    
+        expect(out.L[0]).toEqual(['b','c','one','two','three']);    
     });
 
     it("correctly solves type infering sample", function () { 
