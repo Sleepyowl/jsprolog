@@ -63,16 +63,16 @@ function varNames(list) {
 }
 
 var builtinPredicates = {
-    "cut/0" : function (loop, goals, idx, bindingContext, fbacktrack, level) {
+    "cut/0" : function (loop, goals, idx, bindingContext, fbacktrack) {
         var nextgoals = goals.slice(1); // cut always succeeds
         return loop(nextgoals, 0, new BindingContext(bindingContext), function () {
-            return fbacktrack && fbacktrack(2); // probably still wrong... 8(
-        }, level);
+            return fbacktrack && fbacktrack(2);
+        });
     },
-    "fail/0": function (loop, goals, idx, bindingContext, fbacktrack, level) {
+    "fail/0": function (loop, goals, idx, bindingContext, fbacktrack) {
         return fbacktrack; // FAIL
     },
-    "call/1": function (loop, goals, idx, bindingContext, fbacktrack, level) {
+    "call/1": function (loop, goals, idx, bindingContext, fbacktrack) {
         var first = bindingContext.value(goals[0].partlist.list[0]);
         if (!(first instanceof Term)) {
             return fbacktrack; // FAIL
@@ -82,7 +82,7 @@ var builtinPredicates = {
         ng[0] = first;
         first.parent = goals[0];
         
-        return loop(ng, 0, bindingContext, fbacktrack, level);
+        return loop(ng, 0, bindingContext, fbacktrack);
     }
 };
 
@@ -133,8 +133,6 @@ function getdtreeiterator(originalGoals, rulesDB, fsuccess) {
                 continue;
             }
             
-            // backtracking continuation
-            
             /// CURRENT BACKTRACK CONTINUATION  ///
             /// WHEN INVOKED BACKTRACKS TO THE  ///
             /// NEXT RULE IN THE PREVIOUS LEVEL ///
@@ -148,63 +146,56 @@ function getdtreeiterator(originalGoals, rulesDB, fsuccess) {
                 }
             };
             
-            
             var nextGoals = goals.slice(1); // current head succeeded
-            if (rule.body != null) {                
+            if (rule.body != null) {
                 nextGoals = currentBindingContext.renameVariables(rule.body.list, renamedHead, varMap).concat(nextGoals);
             }
             
             var currentGoalVarNames = varNames([currentGoal]);
             var nextGoalsVarNames = varNames(nextGoals);
             var existing = nextGoalsVarNames.concat(currentGoalVarNames).map(function (e) { return e.name; });
-
+            
+            // If a new variable is not in the current goals -- remove it
             if (parentBindingContext) {
                 currentBindingContext.varNames
                         .filter(function (e) { return existing.indexOf(e) === -1 && parentBindingContext.varNames.indexOf(e) === -1; })
-                        .forEach(function (e) {                    
+                        .forEach(function (e) {
                     currentBindingContext.unbind(e);
                 });
             }
-
-            if (rule.body == null) {
-                // If a new variable is not in the current goals -- remove it
-                var nextGoals = goals.slice(1); // no body = goal is met
-                return function nextGoal() {
-                    return loop(nextGoals, 0, currentBindingContext, fCurrentBT);
-                };
-            } else {
-                if (nextGoals.length === 1) {
-                    
-                    if (currentGoalVarNames.length === nextGoalsVarNames.length) {
-                        //console.log("cutting tail: " + nextGoalsVarNames.join(","));
                         
-                        for (var vn in varMap) {
-                            for (var cn,nn,k = currentGoalVarNames.length; k--;) {
-                                cn = currentGoalVarNames[k];
-                                nn = nextGoalsVarNames[k];
-                                if (cn.name!=nn.name && varMap[vn] === nn) {                                    
-                                    varMap[vn] = cn;
-                                    currentBindingContext.ctx[cn.name] = currentBindingContext.ctx[nn.name];
-                                    currentBindingContext.unbind(nn.name);
-                                }
+            if (rule.body != null && nextGoals.length === 1) {
+                                
+                // recursive call in a tail position: reusing parent variables
+                // TODO: detect it before renaming variables in goals
+                if (currentGoalVarNames.length === nextGoalsVarNames.length) {
+                    for (var vn in varMap) {
+                        for (var cn, nn, k = currentGoalVarNames.length; k--;) {
+                            cn = currentGoalVarNames[k];
+                            nn = nextGoalsVarNames[k];
+                            if (cn.name != nn.name && varMap[vn] === nn) {
+                                varMap[vn] = cn;
+                                currentBindingContext.ctx[cn.name] = currentBindingContext.ctx[nn.name];
+                                currentBindingContext.unbind(nn.name);
                             }
                         }
-
-                        // rename vars in next goals
-                        nextGoals = currentBindingContext.renameVariables(rule.body.list, renamedHead, varMap);
                     }
-
-                    return function levelDownTail() {
-                        // skipping backtracking to the same level because it's the last goal                        
-                        // TODO: removing extra stuff from binding context                                                
-                        return loop(nextGoals, 0, currentBindingContext, fbacktrack);
-                    };
-                } else {
-                    return function levelDown() {
-                        return loop(nextGoals, 0, currentBindingContext, fCurrentBT);
-                    };
+                    
+                    // re-rename vars in next goals (can be optimised)
+                    nextGoals = currentBindingContext.renameVariables(rule.body.list, renamedHead, varMap);
                 }
+                
+                return function levelDownTail() {
+                    // skipping backtracking to the same level because it's the last goal                        
+                    // TODO: removing extra stuff from binding context                                                
+                    return loop(nextGoals, 0, currentBindingContext, fbacktrack);
+                };
+            } else {
+                return function levelDown() {
+                    return loop(nextGoals, 0, currentBindingContext, fCurrentBT);
+                };
             }
+            
         }
         return fbacktrack;
     }    ;
@@ -279,9 +270,9 @@ BindingContext.prototype.renameVariables = function renameVariables(list, parent
         list = queue[i];
         if (list instanceof Atom) {
             out.push(list);
-        } else if (list instanceof Variable) {            
+        } else if (list instanceof Variable) {
             v = vars[list.name] || (vars[list.name] = new Variable("_G" + (globalGoalCounter++)));
-            out.push(v);            
+            out.push(v);
         } else if (list instanceof Term) {
             clen = list.partlist.list.length;
             tmp = new Term(list.name, out.splice(-clen, clen));
