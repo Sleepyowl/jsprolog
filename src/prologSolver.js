@@ -117,18 +117,19 @@ function getdtreeiterator(originalGoals, rulesDB, fsuccess) {
         }
         
         var currentGoal = goals[0],
-            currentBindingContext = new BindingContext(parentBindingContext);
+            currentBindingContext = new BindingContext(parentBindingContext),
+            currentGoalVarNames, rule, varMap, renamedHead, currentGoalVarNames, nextGoalsVarNames, existing;
         
         var builtin = builtinPredicates[currentGoal.name + "/" + currentGoal.partlist.list.length];
         if (typeof (builtin) === "function") {
             return builtin(loop, goals, idx, currentBindingContext, fbacktrack);
         }
         
-        // searching for next matching rule
+        // searching for next matching rule        
         for (var i = idx, db = cdb[currentGoal.name]; i < db.length; i++) {
-            var rule = db[i];
-            var varMap = {};
-            var renamedHead = new Term(rule.head.name, currentBindingContext.renameVariables(rule.head.partlist.list, currentGoal, varMap));
+            rule = db[i];
+            varMap = {};
+            renamedHead = new Term(rule.head.name, currentBindingContext.renameVariables(rule.head.partlist.list, currentGoal, varMap));
             if (!currentBindingContext.unify(currentGoal, renamedHead)) {
                 continue;
             }
@@ -147,13 +148,15 @@ function getdtreeiterator(originalGoals, rulesDB, fsuccess) {
             };
             
             var nextGoals = goals.slice(1); // current head succeeded
+            currentGoalVarNames = varNames([currentGoal]);
+
             if (rule.body != null) {
-                nextGoals = currentBindingContext.renameVariables(rule.body.list, renamedHead, varMap).concat(nextGoals);
+                nextGoals = currentBindingContext.renameVariables(rule.body.list, renamedHead, varMap).concat(nextGoals);               
             }
             
-            var currentGoalVarNames = varNames([currentGoal]);
-            var nextGoalsVarNames = varNames(nextGoals);
-            var existing = nextGoalsVarNames.concat(currentGoalVarNames).map(function (e) { return e.name; });
+            
+            nextGoalsVarNames = varNames(nextGoals);
+            existing = nextGoalsVarNames.concat(currentGoalVarNames).map(function (e) { return e.name; });
             
             // If a new variable is not in the current goals -- remove it
             if (parentBindingContext) {
@@ -164,8 +167,7 @@ function getdtreeiterator(originalGoals, rulesDB, fsuccess) {
                 });
             }
                         
-            if (rule.body != null && nextGoals.length === 1) {
-                                
+            if (rule.body != null && nextGoals.length === 1) {                
                 // recursive call in a tail position: reusing parent variables
                 // TODO: detect it before renaming variables in goals
                 if (currentGoalVarNames.length === nextGoalsVarNames.length) {
