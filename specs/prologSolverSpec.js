@@ -170,11 +170,11 @@ describe("prolog solver", function () {
     it("can append lists", function () {
         var db = Parser.parse('append([], List, List). append([Head | Tail], List2, [Head | Result]):-append(Tail, List2, Result).');
         var out = {};
-        var query = Parser.parseQuery('append([b,c],[one,two,three],L).', out);
+        var query = Parser.parseQuery('append([b,c,d],[one,two,three,four],L).', out);
         var result;        
         result = Solver.query(db, query, out);
         expect(result).toBeTruthy();
-        expect(out.L[0]).toEqual(['b','c','one','two','three']);    
+        expect(out.L[0]).toEqual(['b','c','d','one','two','three','four']);    
     });
     
     it("can copy lists", function () {
@@ -208,22 +208,21 @@ describe("prolog solver", function () {
         expect(out.Type[0]).toBe("number");
     });
 
-    it("returns correct number of results (test case)", function () {
+    it("returns correct number of results (test case)", function () {        
         var db = Parser.parse(            
-            'findconstraint(Name, [typeConstraint(Name,Type)|T1], typeConstraint(Name,Type)).' +
-            'findconstraint(Name, [R | T1], T2) :- findconstraint(Name, T1, T2).' + 
-            'limit(formalparameterlist([]),_,[]). ' + 
-            'limit(formalparameterlist([H|T]),GEnv,[X | Env]):-findconstraint(H, GEnv, X), !, limit(formalparameterlist(T),GEnv,Env).' + 
-            'limit(formalparameterlist([H|T]),GEnv,Env):-limit(formalparameterlist(T),GEnv,Env).');
-        
-        var query = Parser.parseQuery('limit(formalparameterlist(["i", "document"]), [typeConstraint("i", number),typeConstraint("document", string)], R).');
+            'fnd(Name, [Name|T1], Name).' +
+            'fnd(Name, [R | T1], T2) :- fnd(Name, T1, T2).' + 
+            'limit([],_,[]). ' + 
+            'limit([H|T],GEnv,[X | Env]):-fnd(H, GEnv, X), !, limit(T,GEnv,Env).' + 
+            'limit([H|T],GEnv,Env):-limit(T,GEnv,Env).');
+        var query = Parser.parseQuery('limit(["i", "document"], ["i", "document", "q"], R).');
         var out = {};
         var result;
         
         result = Solver.query(db, query, out);
         expect(result).toBeTruthy("solves");
         expect(out.R.length).toBe(1); // tested with SWI/Prolog, should be 1
-        expect(out.R[0]).toEqual(['typeConstraint("i", number)', 'typeConstraint("document", string)']);
+        expect(out.R[0]).toEqual(['"i"', '"document"']);
     });
 
 });
