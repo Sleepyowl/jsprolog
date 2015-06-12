@@ -208,7 +208,7 @@ describe("prolog solver", function () {
         expect(out.Type[0]).toBe("number");
     });
 
-    it("returns correct number of results (test case)", function () {        
+    it("returns correct number of results (cut issue)", function () {        
         var db = Parser.parse(            
             'fnd(Name, [Name|T1], Name).' +
             'fnd(Name, [R | T1], T2) :- fnd(Name, T1, T2).' + 
