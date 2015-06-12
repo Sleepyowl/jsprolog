@@ -176,6 +176,26 @@ describe("prolog solver", function () {
         expect(result).toBeTruthy();
         expect(out.L[0]).toEqual(['b','c','one','two','three']);    
     });
+    
+    it("can copy lists", function () {
+        var db = Parser.parse("cop([],[]). cop([X|T1],[X|T2]):-cop(T1,T2).");
+        var out = {};
+        var query = Parser.parseQuery('cop([1,2,3],X).');
+        var result;
+        result = Solver.query(db, query, out);
+        expect(result).toBeTruthy();
+        expect(out.X[0]).toEqual([1, 2, 3]);
+    });
+    
+    it("can filter lists", function () {
+        var db = Parser.parse("fil(_, [],[]). fil(X, [X|T1], T2):-fil(X, T1,T2). fil(X, [Y|T1], [Y|T2]):-fil(X,T1,T2).");
+        var out = {};
+        var query = Parser.parseQuery('fil(8, [1,2,8,3],X).');
+        var result;
+        result = Solver.query(db, query, out);
+        expect(result).toBeTruthy();
+        expect(out.X[0]).toEqual([1, 2, 3]);
+    });
 
     it("correctly solves type infering sample", function () { 
         var db = Parser.parse('not(Term) :- call(Term), !, fail.  not(Term).  unify(X,X).  typeConstrained(literalexpression(lit_number(X)), number).  typeConstrained(literalexpression(lit_string(X)), string).    typeConstrained(additiveexpression(X,Y),string):-typeConstrained(X,string),!.  typeConstrained(additiveexpression(X,Y),string):-typeConstrained(Y,string),!.  typeConstrained(additiveexpression(X,Y),number):-typeConstrained(X,TX),typeConstrained(Y,TY).  typeConstrained(multiplicativeexpression(X,Y), number).  typeConstrained(parenthesizedexpression(X),Type):-typeConstrained(X,Type).      typeConstrained(expressionsequence([X]),Type):-typeConstrained(X,Type).  typeConstrained(expressionsequence([_|Tail]),Type):-typeConstrained(expressionsequence(Tail),Type).                  alwaysFalse(expressionsequence([X])):-alwaysFalse(X).  alwaysFalse(expressionsequence([_|Tail])):-alwaysFalse(expressionsequence(Tail)).    alwaysTrue(expressionsequence([X])):-alwaysTrue(X).  alwaysTrue(expressionsequence([_|Tail])):-alwaysTrue(expressionsequence(Tail)).                alwaysFalse(strictequalityexpression(X, X)):-!,fail.  alwaysFalse(strictequalityexpression(X, Y)):-typeConstrained(X,T1),typeConstrained(Y,T2),not(unify(T1,T2)).  alwaysTrue(strictequalityexpression(X, X)):-typeConstrained(X, T), not(unify(T,number)).    alwaysFalse(strictinequalityexpression(X, Y)):-alwaysTrue(strictequalityexpression(X, Y)).  alwaysTrue(strictinequalityexpression(X, Y)):-alwaysFalse(strictequalityexpression(X, Y)).      typeConstrained(ternaryexpression(T, _, F), Type):-alwaysFalse(T), typeConstrained(F, Type).  typeConstrained(ternaryexpression(T, S, _), Type):-alwaysTrue(T), typeConstrained(S, Type).  typeConstrained(ternaryexpression(T, S, F), Type):-typeConstrained(S,Type),typeConstrained(F,Type).      returns(returnstatement(RetExpr),[RetExpr]).  returns(block([X|_]), RetExprList) :- returns(X, RetExprList),!.    returns(block([_|Tail],), RetExprList) :- returns(block(Tail), RetExprList).  returns(functionbody(X), RetExprList) :- returns(block(X), RetExprList),!.      returns(ifstatement(Condition,Then,_   ),RetExprList):-alwaysTrue(Condition),returns(Then,RetExprList).  returns(ifstatement(Condition,_   ,Else),RetExprList):-alwaysFalse(Condition),returns(Else,RetExprList).  returns(ifstatement(Condition,Then,Else),RetExprList):-returns(Then,Expr1),returns(Else,Expr2),append(Expr1,Expr2,RetExprList).  returns(ifstatement(Condition,Then),RetExprList):-alwaysTrue(Condition),returns(Then,RetExprList).    typeConstrained(superposition([H]), Type):-typeConstrained(H,Type).  typeConstrained(superposition([H|T]), Type):-typeConstrained(H,Type),typeConstrained(superposition(T), Type).  returnTypeConstrained(functionexpression(Params,X), Type):-returns(X,RetExprList),typeConstrained(superposition(RetExprList), Type). typeConstrained(a, string).  typeConstrained(b, number).');
