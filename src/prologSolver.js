@@ -169,39 +169,39 @@ function getdtreeiterator(originalGoals, rulesDB, fsuccess) {
                 nextGoals = currentBindingContext.renameVariables(rule.body.list, renamedHead, varMap).concat(nextGoals);
             }
             
-            if (tailEnabled) {
-                currentGoalVarNames = varNames([currentGoal]);
-                nextGoalsVarNames = varNames(nextGoals);
-                existing = nextGoalsVarNames.concat(currentGoalVarNames).map(function (e) { return e.name; });
-                
-                // If a new variable is not in the current goals -- remove it
-                if (parentBindingContext) {
-                    currentBindingContext.varNames
-                        .filter(function (e) { return existing.indexOf(e) === -1 && parentBindingContext.varNames.indexOf(e) === -1; })
-                        .forEach(function (e) {
-                        currentBindingContext.unbind(e);
-                    });
-                }
-            }
+           // TODO: remove 'free' variables (need to check values as well)
             
             if (rule.body != null && nextGoals.length === 1) {
-                // recursive call in a tail position: reusing parent variables
-                // TODO: detect it before renaming variables in goals
-                if (tailEnabled && currentGoalVarNames.length === nextGoalsVarNames.length) {
-                    for (var vn in varMap) {
-                        for (var cn, nn, k = currentGoalVarNames.length; k--;) {
-                            cn = currentGoalVarNames[k];
-                            nn = nextGoalsVarNames[k];
-                            if (cn.name != nn.name && varMap[vn] === nn) {
-                                varMap[vn] = cn;
-                                currentBindingContext.ctx[cn.name] = currentBindingContext.ctx[nn.name];
-                                currentBindingContext.unbind(nn.name);
+                // call in a tail position: reusing parent variables                
+                // prevents context groth in some recursive scenarios
+                if (tailEnabled) {
+                    currentGoalVarNames = varNames([currentGoal]);
+                    nextGoalsVarNames = varNames(nextGoals);
+                    existing = nextGoalsVarNames.concat(currentGoalVarNames).map(function (e) { return e.name; });
+                    
+                    if (currentGoalVarNames.length === nextGoalsVarNames.length) {
+                        for (var vn in varMap) {
+                            for (var cv, cn, nn, k = currentGoalVarNames.length; k--;) {
+                                cn = currentGoalVarNames[k];
+                                nn = nextGoalsVarNames[k];
+                                cv = currentBindingContext.value(cn);
+                                
+                                if (cn.name != nn.name && varMap[vn] === nn) {
+                                    // do not short-cut if cn's value references nn
+                                    // TODO: probably need to check other variables
+                                    if (cv && varNames([cv]).indexOf(nn) !== -1) {
+                                        continue;
+                                    }
+                                    varMap[vn] = cn;
+                                    currentBindingContext.ctx[cn.name] = currentBindingContext.ctx[nn.name];
+                                    currentBindingContext.unbind(nn.name);
+                                }
                             }
                         }
+                        
+                        // re-rename vars in next goals (can be optimised)
+                        nextGoals = currentBindingContext.renameVariables(rule.body.list, renamedHead, varMap);
                     }
-                    
-                    // re-rename vars in next goals (can be optimised)
-                    nextGoals = currentBindingContext.renameVariables(rule.body.list, renamedHead, varMap);
                 }
                 
                 return function levelDownTail() {

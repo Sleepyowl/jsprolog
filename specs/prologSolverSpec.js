@@ -11,7 +11,7 @@ describe("prolog solver", function () {
 
     beforeEach(function () {        
         Solver.options.maxIterations = 1000;
-        Solver.options.experimental.tailRecursion = false; // Alas, it breaks list contatenation
+        Solver.options.experimental.tailRecursion = true;
     });
     
     afterEach(function () { 
