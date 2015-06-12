@@ -21,6 +21,36 @@ describe("prolog parser", function () {
         expect(rules[0].head.partlist.list[0].name).toBe("x");
         expect(rules[0].head.partlist.list[1].name).toBe("y");
     });
+    
+    it("parses integer numbers", function () {
+        var db = "val(10).";
+        var rules = prologParser.parse(db);
+        expect(rules).toBeDefined();
+        expect(rules.length).toBe(1);
+        expect(rules[0] instanceof prologAST.Rule).toBeTruthy();
+        expect(rules[0].head instanceof prologAST.Term).toBeTruthy();
+        expect(rules[0].head.name).toBe("val");
+        expect(rules[0].head.partlist instanceof prologAST.Partlist).toBeTruthy();
+        expect(rules[0].head.partlist.list instanceof Array).toBeTruthy();
+        expect(rules[0].head.partlist.list.length).toBe(1);
+        expect(rules[0].head.partlist.list[0] instanceof prologAST.Atom).toBeTruthy();        
+        expect(rules[0].head.partlist.list[0].name).toBe(10);
+    });
+    
+    it("parses decimal numbers with fractional part", function () {
+        var db = "val(3.14).";
+        var rules = prologParser.parse(db);
+        expect(rules).toBeDefined();
+        expect(rules.length).toBe(1);
+        expect(rules[0] instanceof prologAST.Rule).toBeTruthy();
+        expect(rules[0].head instanceof prologAST.Term).toBeTruthy();
+        expect(rules[0].head.name).toBe("val");
+        expect(rules[0].head.partlist instanceof prologAST.Partlist).toBeTruthy();
+        expect(rules[0].head.partlist.list instanceof Array).toBeTruthy();
+        expect(rules[0].head.partlist.list.length).toBe(1);
+        expect(rules[0].head.partlist.list[0] instanceof prologAST.Atom).toBeTruthy();
+        expect(rules[0].head.partlist.list[0].name).toBe(3.14);
+    });
 
     it("can parse simple rule", function () {
         var db = "parent(X,Y):-child(Y,X),organism(X),organism(Y).";

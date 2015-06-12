@@ -69,7 +69,7 @@ Tokeniser.prototype.consume = function consume() {
         return;
     }
     
-    r = this.remainder.match(/^[a-zA-Z0-9][a-zA-Z0-9_]*/);
+    r = this.remainder.match(/^[a-z][a-zA-Z0-9_]*/);
     if (r) {
         this.remainder = this.remainder.substring(r[0].length);
         this.current = r[0];
@@ -77,10 +77,13 @@ Tokeniser.prototype.consume = function consume() {
         return;
     }
     
-    r = this.remainder.match(/^-[0-9][0-9]*/);
-    if (r) {
+    r = this.remainder.match(/^-?\d+(\.\d+)?/);
+    if (r) {        
         this.remainder = this.remainder.substring(r[0].length);
-        this.current = r[0];
+        this.current = +r[0];
+        if (isNaN(this.current)) { // sanity check
+            throw "unexpected parser error: " + r[0] + " isNaN";
+        }
         this.type = "id";
         return;
     }

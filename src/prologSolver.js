@@ -232,8 +232,8 @@ function getdtreeiterator(originalGoals, rulesDB, fsuccess) {
 };
 
 function termToJsValue(v) {
-    if (v instanceof Atom && v.name.match(/^\d+$/)) {
-        return +v.name;
+    if (v instanceof Atom) {
+        return v.name;
     }    
 
     if (v instanceof Term && v.name === "cons") {
