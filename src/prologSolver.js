@@ -80,7 +80,7 @@ var builtinPredicates = {
     "cut/0" : function (loop, goals, idx, bindingContext, fbacktrack) {
         var nextgoals = goals.slice(1); // cut always succeeds
         return loop(nextgoals, 0, new BindingContext(bindingContext), function () {
-            return fbacktrack && fbacktrack(2);
+            return fbacktrack && fbacktrack(true, goals[0].parent);
         });
     },
     "fail/0": function (loop, goals, idx, bindingContext, fbacktrack) {
@@ -144,6 +144,7 @@ function getdtreeiterator(originalGoals, rulesDB, fsuccess) {
             rule = db[i];
             varMap = {};
             renamedHead = new Term(rule.head.name, currentBindingContext.renameVariables(rule.head.partlist.list, currentGoal, varMap));
+            renamedHead.parent = currentGoal.parent;
             if (!currentBindingContext.unify(currentGoal, renamedHead)) {
                 continue;
             }
@@ -151,11 +152,11 @@ function getdtreeiterator(originalGoals, rulesDB, fsuccess) {
             /// CURRENT BACKTRACK CONTINUATION  ///
             /// WHEN INVOKED BACKTRACKS TO THE  ///
             /// NEXT RULE IN THE PREVIOUS LEVEL ///
-            var fCurrentBT = function (cut) {
+            var fCurrentBT = function (cut, parent) {
                 
                 var b = fbacktrack;
-                if (cut > 0) {
-                    return fbacktrack && fbacktrack(cut - 1);
+                if (cut) {                    
+                    return fbacktrack && fbacktrack(parent.parent !== goals[0].parent, parent);
                 } else {
                     return loop(goals, i + 1, parentBindingContext, fbacktrack);
                 }
@@ -314,6 +315,11 @@ BindingContext.prototype.renameVariables = function renameVariables(list, parent
         } else if (list instanceof Term) {
             clen = list.partlist.list.length;
             tmp = new Term(list.name, out.splice(-clen, clen));
+            for (var pl = tmp.partlist.list, k = pl.length; k--;) {
+                if (pl[k] instanceof Term) {
+                    pl[k].parent = tmp;
+                }
+            }
             tmp.parent = parent;
             out.push(tmp);
         } else {
