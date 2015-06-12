@@ -18,16 +18,11 @@ function Tokeniser(string) {
 // TODO: lexer error handling
 Tokeniser.prototype.consume = function consume() {
     if (this.type == "eof") return;
-    // Eat any leading WS
-    var r = this.remainder.match(/^\s*/);
+    // Eat any leading WS and %-style comments
+    var r = this.remainder.match(/^(\s+|([%].*)[\n\r]+)*/);
     if (r) {
         this.remainder = this.remainder.substring(r[0].length);
-    }
-    
-    r = this.remainder.match(/^([%].*)[\n\r]+/);
-    if (r) {
-        this.remainder = this.remainder.substring(r[0].length);
-    }
+    }       
     
     if (this.remainder == "") {
         this.current = null;

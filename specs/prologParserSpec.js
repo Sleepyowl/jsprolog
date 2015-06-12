@@ -130,7 +130,7 @@ describe("prolog parser", function () {
     });
 
     it("handles line comments properly", function () {
-        var db = "parent(X,Y):-\nchild(Y,X).\n  % a comment\nsibling(X,Y)\n:-\n\n\tchild(X,Z),child(Y,Z).";
+        var db = "parent(X,Y):-\nchild(Y,X).\n  % a comment\n% on the next line too\n\n% and skipping a line comment\nsibling(X,Y)\n:-\n\n\tchild(X,Z),child(Y,Z).";
         var rules = prologParser.parse(db);
         expect(rules.length).toBe(2);
         
