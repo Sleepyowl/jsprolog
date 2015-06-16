@@ -53,7 +53,9 @@ exports.query = function query(db, query, outVars) {
     return proven;
 };
 
-// Return a list of all variables mentioned in a list of Terms.
+/** 
+ * Get a list of all variables mentioned in a list of Terms.
+ */
 function varNames(list) {
     var out = [], vars = {}, t, n;
     list = list.slice(0); // clone   
@@ -134,6 +136,7 @@ function getdtreeiterator(originalGoals, rulesDB, fsuccess) {
             currentBindingContext = new BindingContext(parentBindingContext),
             currentGoalVarNames, rule, varMap, renamedHead, currentGoalVarNames, nextGoalsVarNames, existing;
         
+        // TODO: add support for builtins with variable arity (like call/2+)
         var builtin = builtinPredicates[currentGoal.name + "/" + currentGoal.partlist.list.length];
         if (typeof (builtin) === "function") {
             return builtin(loop, goals, idx, currentBindingContext, fbacktrack);
@@ -155,7 +158,7 @@ function getdtreeiterator(originalGoals, rulesDB, fsuccess) {
             var fCurrentBT = function (cut, parent) {
                 
                 var b = fbacktrack;
-                if (cut) {                    
+                if (cut) {
                     return fbacktrack && fbacktrack(parent.parent !== goals[0].parent, parent);
                 } else {
                     return loop(goals, i + 1, parentBindingContext, fbacktrack);
@@ -169,7 +172,7 @@ function getdtreeiterator(originalGoals, rulesDB, fsuccess) {
                 nextGoals = currentBindingContext.renameVariables(rule.body.list, renamedHead, varMap).concat(nextGoals);
             }
             
-           // TODO: remove 'free' variables (need to check values as well)
+            // TODO: remove 'free' variables (need to check values as well)
             
             if (rule.body != null && nextGoals.length === 1) {
                 // call in a tail position: reusing parent variables                
@@ -224,19 +227,22 @@ function getdtreeiterator(originalGoals, rulesDB, fsuccess) {
     var _fs = fsuccess;
     fsuccess = function (bindingContext) {
         var result = {};
-        for (var key in map) {                        
+        for (var key in map) {
             result[key] = termToJsValue(bindingContext.value(map[key]));
-        }        
+        }
         _fs(result);
-    };    
+    };
     return loop(rootContext.renameVariables(originalGoals, null, map), 0, null, null);
 };
 
+/**
+ * helper function to convert terms to result values returned by query function
+ */
 function termToJsValue(v) {
     if (v instanceof Atom) {
         return v.name;
-    }    
-
+    }
+    
     if (v instanceof Term && v.name === "cons") {
         var t = [];
         while (v.partlist && v.name !== "nil") { // we're not expecting malformed lists...
@@ -245,7 +251,7 @@ function termToJsValue(v) {
         }
         return t;
     }
-
+    
     return v.toString();
 }
 
@@ -265,6 +271,10 @@ function BindingContext(parent) {
     }
 }
 
+/**
+ * fine-print the context (for debugging purposes)
+ * ! SLOW because of for-in
+ */
 BindingContext.prototype.toString = function toString() {
     var r = [], p = [];
     for (key in this.ctx) {
@@ -275,10 +285,15 @@ BindingContext.prototype.toString = function toString() {
     return r.join(", ") + " || " + p.join(", ");
 };
 
+var globalGoalCounter = 0;
+
 /**
  * renames variables to make sure names are unique
+ * @param list list of terms to rename
+ * @param parent parent term (parent is used in cut)
+ * @param varMap (out) map of variable mappings, used to make sure that both head and body have same names
+ * @returns new term with renamed variables
  */
-var globalGoalCounter = 0;
 BindingContext.prototype.renameVariables = function renameVariables(list, parent, varMap) {
     var out = [], 
         queue = [],
@@ -331,28 +346,32 @@ BindingContext.prototype.renameVariables = function renameVariables(list, parent
     return out;
 }
 
+/**
+ * Binds variable to a value in the context
+ * @param name name of the variable to bind
+ * @param value value to bind to the variable
+ */
 BindingContext.prototype.bind = function (name, value) {
-    //if (name in (this.ctx)) {// sanity check
-    //    throw "variable " + name + " is already bound in the context!";
-    //}    
     this.ctx[name] = value;
-    
-    // to avoid for ... in which is way too slow
     this.varNames.push(name);
 };
 
+/**
+ * Unbinds variable in the context
+ * @param name variable name to unbind
+ */
 BindingContext.prototype.unbind = function (name) {
-    //if (name in (this.ctx)) {// sanity check
-    //    throw "variable " + name + " is already bound in the context!";
-    //}    
     delete this.ctx[name];
-    
-    // to avoid for ... in which is way too slow
     this.varNames.splice(this.varNames.indexOf(name), 1);
 };
 
+/**
+ * Gets the value of the term, recursively replacing variables with bound values
+ * @param x term to calculate value for
+ * @returns value of term x
+ */
 BindingContext.prototype.value = function value(x) {
-    var queue = [x], acc = [], c, i;
+    var queue = [x], acc = [], c, i, l;
     
     while (queue.length) {
         x = queue.pop();
@@ -375,81 +394,91 @@ BindingContext.prototype.value = function value(x) {
     while (i--) {
         x = queue[i];
         if (x instanceof Term) {
-            var c = x.partlist.list.length,
-                l = acc.splice(-c, c);
-            acc.push(new Term(x.name, l));
+            c = x.partlist.list.length;            
+            acc.push(new Term(x.name, acc.splice(-c, c)));
         } else acc.push(x);
-    }    ;
+    }    
     
     return acc[0];
 }
 
-BindingContext.prototype.unify = function unify(x, y) {
-    var toSet = {}, p, acc = [];
-    var queue = [{ x: x, y: y }];
+/**
+ * Unifies terms x and y, renaming and binding variables in process
+ * !! mutates variable names (altering x, y and varMap in main loop)
+ * @returns true if terms unify, false otherwise
+ */
+BindingContext.prototype.unify = function unify(x, y) {    
+    var toSetNames = [],
+        toSet = {}, 
+        acc = [], 
+        queue = [x, y], 
+        xpl, 
+        ypl,
+        i;
+    
     while (queue.length) {
-        p = queue.pop();
-        x = this.value(p.x);
-        y = this.value(p.y);
+        x = this.value(queue.pop());
+        y = this.value(queue.pop());
         
-        if (x instanceof Term && y instanceof Term) { // no need to unwind if we are not unifying two terms
-            if (x.name == y.name && x.partlist.list.length == y.partlist.list.length) {
-                for (var i = 0, len = x.partlist.list.length; i < len; i++) {
-                    queue.push({ x: x.partlist.list[i], y: y.partlist.list[i] });
+        if (x instanceof Term && y instanceof Term) { // no need to expand if we are not unifying two terms
+            xpl = x.partlist.list;
+            ypl = y.partlist.list;
+            if (x.name == y.name && xpl.length == ypl.length) {
+                for (var i = 0, len = xpl.length; i < len; i++) {
+                    queue.push(xpl[i], ypl[i]);
                 }
             } else {
                 return false;
             }
         } else {
-            acc.push({ x: x, y: y });
+            if ((x instanceof Atom || y instanceof Atom) && !(x instanceof Variable || y instanceof Variable)) {
+                if (!(x instanceof Atom && y instanceof Atom && x.name == y.name)) {
+                    return false;
+                }
+            }
+            acc.push(x, y);
         }
     }
-    
-    queue = acc;
-    for (var i = queue.length; i--;) {
-        p = queue[i];
-        x = p.x;
-        y = p.y;
+        
+    i = acc.length;
+    while (i) {
+        y = acc[--i];
+        x = acc[--i];
         
         if (x instanceof Variable) {
             if (x.name === "_") { continue; }
-            if (x.name in toSet && toSet[x.name].name !== y.name) {
+            if (toSetNames.indexOf(x.name) === -1) {
+                toSetNames.push(x.name);
+            } else if (toSet[x.name].name !== y.name) {
                 return false;
             }
             toSet[x.name] = y;
             
         } else if (y instanceof Variable) {
             if (y.name === "_") { continue; }
-            if (y.name in toSet && toSet[y.name].name !== x.name) {
+            if (toSetNames.indexOf(y.name) === -1) {
+                toSetNames.push(y.name);
+            } else if (toSet[y.name].name !== x.name) {
                 return false;
             }
             toSet[y.name] = x;
-        } else if (x instanceof Atom || y instanceof Atom) {
-            if (!(x instanceof Atom && y instanceof Atom && x.name == y.name)) {
-                return false;
-            }
-        } else {
-            throw "unexpected types in bind()";
         }
     }
-    
-    // binding variables only if x indeed unifies with y
-    // TODO: cleanup
+        
+    // renaming unified variables
+    // it's guaranteed that variable with the same name is the same instance within rule, see renameVariables()
     var varmap = {};
-    for (var key in toSet) {
-        if (Object.prototype.hasOwnProperty.call(toSet, key)) {
-            if (toSet[key] instanceof Variable) {
-                varmap[toSet[key].name] = key;
-                toSet[key].name = key; // renaming variables (it's guaranteed that variable with the same name is the same instance within rule, see rename)
-            }
+    for (var i = 0, key; key = toSetNames[i++];) {
+        if (toSet[key] instanceof Variable) {
+            varmap[toSet[key].name] = key;            
+            toSet[key].name = key; 
         }
     }
     
-    for (var key in toSet) { // consider replacing for in with a regular for
-        if (Object.prototype.hasOwnProperty.call(toSet, key)) {
-            if (!(toSet[key] instanceof Variable)) {
-                this.bind(varmap[key] || key, toSet[key]);
-            }
+    // bind values to variables (minding renames)
+    for (var i = 0, key; key = toSetNames[i++];) {
+        if (!(toSet[key] instanceof Variable)) {
+            this.bind(varmap[key] || key, toSet[key]);
         }
     }
     
