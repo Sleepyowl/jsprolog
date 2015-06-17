@@ -25,11 +25,28 @@ exports.options = options;
  * @param outVars (optional) object to store output
  * @returns true if unify
  */
-exports.query = function query(db, query, outVars) {
-    var vars = varNames(query.list);
-    var proven = false;
+exports.query = function query(rulesDB, query, outVars) {
+    var vars = varNames(query.list),
+        proven = false,
+        cdb = {};
     
-    var cont = getdtreeiterator(query.list, db, function (result) {
+    // maybe move to parser level, idk
+    for (var i = 0, name, rule; i < rulesDB.length; i++) {
+        rule = rulesDB[i];
+        name = rule.head.name;
+        if (name in cdb) {
+            cdb[name].push(rule);
+        } else {
+            cdb[name] = [rule];
+        }
+    }
+                   
+    var cont = getdtreeiterator(query.list, cdb, function (bindingContext) {
+        var result = {};
+        for (var i=0,v; v=vars[i++]; ) {
+            result[v.name] = termToJsValue(bindingContext.value(v));
+        }
+
         proven = true;
         if (outVars && typeof (outVars) === "object") {
             vars.forEach(function (v) {
@@ -107,7 +124,23 @@ var builtinPredicates = {
         } else {
             return fbacktrack; // FAIL
         }
-
+    },
+    "findall/3": function (loop, goals, idx, bindingContext, fbacktrack, db) { // TODO: refactor rule db passing
+        var args = goals[0].partlist.list,
+            results = [];
+        
+        return getdtreeiterator([args[1]], db, collect, bindingContext, report);
+        function collect(ctx) {
+            results.push(ctx.value(args[0]));
+        }
+        function report() {
+            var result = AST.listOfArray(results);
+            if (bindingContext.unify(args[2], result)) {
+                return loop(goals.slice(1), 0, bindingContext, fbacktrack);
+            } else {
+                return fbacktrack;
+            }
+        }
     }
 };
 
@@ -118,21 +151,10 @@ var builtinPredicates = {
  * @param fsuccess success callback
  * @returns a function to perform next step
  */
-function getdtreeiterator(originalGoals, rulesDB, fsuccess) {
+function getdtreeiterator(originalGoals, rulesDB, fsuccess, rootBindingContext, rootBacktrack) {
     "use strict";
-    var cdb = {}, tailEnabled = options.experimental.tailRecursion;
-    
-    // maybe move to parser level, idk
-    for (var i = 0, name, rule; i < rulesDB.length; i++) {
-        rule = rulesDB[i];
-        name = rule.head.name;
-        if (name in cdb) {
-            cdb[name].push(rule);
-        } else {
-            cdb[name] = [rule];
-        }
-    }
-    
+    var tailEnabled = options.experimental.tailRecursion;
+
     // main loop continuation
     function loop(goals, idx, parentBindingContext, fbacktrack) {
         
@@ -148,11 +170,11 @@ function getdtreeiterator(originalGoals, rulesDB, fsuccess) {
         // TODO: add support for builtins with variable arity (like call/2+)
         var builtin = builtinPredicates[currentGoal.name + "/" + currentGoal.partlist.list.length];
         if (typeof (builtin) === "function") {
-            return builtin(loop, goals, idx, currentBindingContext, fbacktrack);
+            return builtin(loop, goals, idx, currentBindingContext, fbacktrack, rulesDB);
         }
         
         // searching for next matching rule        
-        for (var i = idx, db = cdb[currentGoal.name], dblen = db && db.length; i < dblen; i++) {
+        for (var i = idx, db = rulesDB[currentGoal.name], dblen = db && db.length; i < dblen; i++) {
             rule = db[i];
             varMap = {};
             renamedHead = new Term(rule.head.name, currentBindingContext.renameVariables(rule.head.partlist.list, currentGoal, varMap));
@@ -229,19 +251,10 @@ function getdtreeiterator(originalGoals, rulesDB, fsuccess) {
             
         }
         return fbacktrack;
-    }    ;
-    
-    var rootContext = new BindingContext();
-    var map = {};
-    var _fs = fsuccess;
-    fsuccess = function (bindingContext) {
-        var result = {};
-        for (var key in map) {
-            result[key] = termToJsValue(bindingContext.value(map[key]));
-        }
-        _fs(result);
     };
-    return loop(rootContext.renameVariables(originalGoals, null, map), 0, null, null);
+    
+    
+    return loop(originalGoals, 0, rootBindingContext || null, rootBacktrack || null);
 };
 
 /**
@@ -249,7 +262,7 @@ function getdtreeiterator(originalGoals, rulesDB, fsuccess) {
  */
 function termToJsValue(v) {
     if (v instanceof Atom) {
-        return v.name;
+        return v.name === "nil" ? [] : v.name;
     }
     
     if (v instanceof Term && v.name === "cons") {

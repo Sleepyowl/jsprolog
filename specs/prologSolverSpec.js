@@ -226,8 +226,7 @@ describe("prolog solver", function () {
                 
                 expect(result).toBeTruthy();
             });
-        });
-        
+        });        
 
         describe("=/2", function () { 
             it("=/2 unifies atoms", function () {
@@ -255,6 +254,86 @@ describe("prolog solver", function () {
                 expect(result).toBeTruthy();
                 expect(out.X[0]).toBe(5);
             });
-        });               
+        });
+
+        describe("findall/3", function () {
+            it("returns all results", function () {
+                var db = Parser.parse("city(moscow,russia).city(vladivostok,russia).city(boston,usa)."),
+                    out = {},
+                    query = Parser.parseQuery("findall(C,city(C,_),Cities)."),
+                    result = Solver.query(db, query, out);
+                
+                expect(result).toBeTruthy();
+                expect(out.Cities instanceof Array).toBeTruthy();
+                expect(out.Cities.length).toBe(1);
+                expect(out.Cities[0]).toEqual(["moscow", "vladivostok", "boston"]);
+            });
+            
+            it("sees parent context", function () {
+                var db = Parser.parse("city(moscow,russia).city(vladivostok,russia).city(boston,usa)."),
+                    out = {},
+                    query = Parser.parseQuery("=(R,usa),findall(C,city(C,R),Cities)."),
+                    result = Solver.query(db, query, out);
+                
+                expect(result).toBeTruthy();
+                expect(out.Cities instanceof Array).toBeTruthy();
+                expect(out.Cities.length).toBe(1);
+                expect(out.Cities[0]).toEqual(["boston"]);
+            });
+            
+            it("works if first argument is not a variable and grounded", function () {
+                var db = Parser.parse("city(moscow,russia).city(vladivostok,russia).city(boston,usa)."),
+                    out = {},
+                    query = Parser.parseQuery("findall(10,city(C,R),Cities)."),
+                    result = Solver.query(db, query, out);
+                
+                expect(result).toBeTruthy();
+                expect(out.Cities instanceof Array).toBeTruthy();
+                expect(out.Cities.length).toBe(1);
+                expect(out.Cities[0]).toEqual([10,10,10]);
+            });
+            
+            it("works if first argument is not a variable is a partial term", function () {
+                var db = Parser.parse("city(moscow,russia).city(vladivostok,russia).city(boston,usa)."),
+                    out = {},
+                    query = Parser.parseQuery("findall(term(C),city(C,R),Cities)."),
+                    result = Solver.query(db, query, out);
+                
+                expect(result).toBeTruthy();
+                expect(out.Cities instanceof Array).toBeTruthy();
+                expect(out.Cities.length).toBe(1);
+                expect(out.Cities[0]).toEqual(['term(moscow)', 'term(vladivostok)', 'term(boston)']);
+            });
+            
+            it("works if last argument is not a variable and should unify", function () {
+                var db = Parser.parse("city(moscow,russia).city(vladivostok,russia).city(boston,usa)."),
+                    out = {},
+                    query = Parser.parseQuery("findall(C,city(C,R),[moscow, vladivostok, boston])."),
+                    result = Solver.query(db, query, out);
+                
+                expect(result).toBeTruthy();                
+            });
+            
+            it("works if last argument is not a variable and shouldn't unify", function () {
+                var db = Parser.parse("city(moscow,russia).city(vladivostok,russia).city(boston,usa)."),
+                    out = {},
+                    query = Parser.parseQuery("findall(C,city(C,R),[brussels])."),
+                    result = Solver.query(db, query, out);
+                
+                expect(result).toBeFalsy();
+            });
+            
+            it("returns empty list if goal fails", function () {
+                var db = Parser.parse("city(moscow,russia).city(vladivostok,russia).city(boston,usa)."),
+                    out = {},
+                    query = Parser.parseQuery("findall(C,city(C,canada),Cities)."),
+                    result = Solver.query(db, query, out);
+                
+                expect(result).toBeTruthy();
+                expect(out.Cities instanceof Array).toBeTruthy();
+                expect(out.Cities.length).toBe(1);
+                expect(out.Cities[0].length).toBe(0);
+            });
+        });
     });
 });
