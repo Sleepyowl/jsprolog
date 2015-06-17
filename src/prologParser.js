@@ -8,6 +8,31 @@ var Partlist = AST.Partlist;
 var Body = AST.Body;
 var Rule = AST.Rule;
 
+
+exports.parse = parse;
+exports.parseQuery = parseQuery;
+
+/**
+ * Parses the DB
+ */
+function parse(string) {
+    var tk = new Tokeniser(string), 
+        rules = [];
+    
+    while (tk.current != null) {
+        rules.push(parseRule(tk));        
+    }
+    
+    return rules;
+}
+
+function parseQuery(string) {
+    var tk = new Tokeniser(string);
+    return new Body(parseBody(tk));
+}
+
+//////////////////////////////////////////////////////////////////////
+
 function Tokeniser(string) {
     this.remainder = string;
     this.current = null;
@@ -15,14 +40,23 @@ function Tokeniser(string) {
     this.consume();	// Load up the first token.
 }
 
+var tokenizerRules = [
+    [/^([\(\)\.,\[\]\|\!]|\:\-)/, "punc"],
+    [/^([A-Z_][a-zA-Z0-9_]*)/, "var"],
+    [/^("[^"]*")/, "id"],
+    [/^([a-z][a-zA-Z0-9_]*)/, "id"],
+    [/^(-?\d+(\.\d+)?)/, "id", function (x) { return +x; }]
+];
+
 // TODO: lexer error handling
 Tokeniser.prototype.consume = function consume() {
     if (this.type == "eof") return;
+    
     // Eat any leading WS and %-style comments
     var r = this.remainder.match(/^(\s+|([%].*)[\n\r]+)*/);
     if (r) {
         this.remainder = this.remainder.substring(r[0].length);
-    }       
+    }
     
     if (this.remainder == "") {
         this.current = null;
@@ -30,272 +64,165 @@ Tokeniser.prototype.consume = function consume() {
         return;
     }
     
-    r = this.remainder.match(/^([\(\)\.,\[\]\|\!]|\:\-)/);
-    if (r) {
-        this.remainder = this.remainder.substring(r[0].length);
-        this.current = r[1];
-        this.type = "punc";
-        return;
-    }
-    
-    r = this.remainder.match(/^[A-Z_][a-zA-Z0-9_]*/);
-    if (r) {
-        this.remainder = this.remainder.substring(r[0].length);
-        this.current = r[0];
-        this.type = "var";
-        return;
-    }
-    
-    // URLs in curly-bracket pairs
-    r = this.remainder.match(/^\{[^\}]*\}/);
-    if (r) {
-        this.remainder = this.remainder.substring(r[0].length);
-        this.current = r[0];
-        this.type = "id";
-        return;
-    }
-    
-    // Quoted strings
-    r = this.remainder.match(/^"[^"]*"/);
-    if (r) {
-        this.remainder = this.remainder.substring(r[0].length); 
-        this.current = r[0];
-        this.type = "id";
-        return;
-    }
-    
-    r = this.remainder.match(/^[a-z][a-zA-Z0-9_]*/);
-    if (r) {
-        this.remainder = this.remainder.substring(r[0].length);
-        this.current = r[0];
-        this.type = "id";
-        return;
-    }
-    
-    r = this.remainder.match(/^-?\d+(\.\d+)?/);
-    if (r) {        
-        this.remainder = this.remainder.substring(r[0].length);
-        this.current = +r[0];
-        if (isNaN(this.current)) { // sanity check
-            throw "unexpected parser error: " + r[0] + " isNaN";
+    for (var i = 0, rule; rule = tokenizerRules[i++];) {
+        if (r = this.remainder.match(rule[0])) {
+            this.remainder = this.remainder.substring(r[0].length);
+            this.type = rule[1];
+            this.current = typeof (rule[2]) === "function" ? rule[2](r[1]) : r[1];
+            return;
         }
-        this.type = "id";
-        return;
     }
     
+    // TODO: throw tokenizer error instead of eof'ing
     this.current = null;
     this.type = "eof";
-
 };
 
-
-// TODO: parser error handling
-
-/**
- * Parses the DB
- */
-exports.parse = function parse(string) {
-    var tk = new Tokeniser(string), 
-        rules = [],
-        db = {},
-        rule;
-
-    while (tk.current != null) {        
-        rule = parseRule(tk);
-
-        if (rule) {
-            rules.push(rule);
-        } else {
-            throw "Syntax Error";
-        }
-        
-        // TODO: maybe it should be consumed in the rule
-        if (tk.current == '.') {
-            tk.consume();
-        }
+Tokeniser.prototype.accept = function (type, symbol) {
+    if (this.type === type && (typeof (symbol) === "undefined" || this.current === symbol)) {
+        this.accepted = this.current;
+        this.consume();
+        return true;
     }
-
-    return rules;
+    return false;
 };
 
-exports.parseQuery = function parseQuery(string) {
-    var tk = new Tokeniser(string),
-        body = parseBody(tk);
-    if (!body) {
-        throw "Syntax Error";
+Tokeniser.prototype.expect = function (type, symbol) {
+    if (this.accept(type, symbol)) {
+        return true;
     }
-    
-    return new Body(body);
+    throw this.type === "eof" ? "Syntax error: unexpected end of file" : "Syntax error: unexpected token " + this.current;
 };
 
-
+//////////////////////////////////////////////////////////////////////
 
 function parseRule(tk) {
-    // A rule is a Head followed by . or by :- Body
+    // Rule := Term . | Term :- PartList .
     
     var h = parseTerm(tk);
-    if (!h) return null;
     
-    if (tk.current == ".") {
-        // A simple rule.
+    if (tk.accept("punc", ".")) {
         return new Rule(h);
     }
     
-    if (tk.current != ":-") return null;
-    tk.consume();
+    tk.expect("punc", ":-");
     var b = parseBody(tk);
-    
-    if (tk.current != ".") return null;
     
     return new Rule(h, b);
 }
 
-function parseTerm(tk) {
-    // Term -> [NOTTHIS] id ( optParamList )
-    
-    if (tk.type == "punc" && tk.current == "!") {
-        // Parse ! as cut/0
-        tk.consume();
+function parseTerm(tk) {// Term -> id ( optParamList )
+    if (tk.accept("punc", "!")) {
+        // Parse ! as cut/0        
         return new Term("cut", []);
     }
     
-    var notthis = false;
-    if (tk.current == "NOTTHIS") {
-        notthis = true;
-        tk.consume();
+    tk.expect("id");
+    var name = tk.accepted;
+    
+    // fail shorthand for fail(), ie, fail/0
+    if (tk.current != "(" && name == "fail") {
+        return new Term(name, []);
     }
     
-    if (tk.type != "id") {
-        return null;
-    }
-    
-    var name = tk.current;
-    tk.consume();
-    
-    if (tk.current != "(") {
-        // fail shorthand for fail(), ie, fail/0
-        if (name == "fail") {
-            return new Term(name, []);
-        }
-        return null;
-    }
-    tk.consume();
+    tk.expect("punc", "(");
     
     var p = [];
-    var i = 0;
-    while (tk.current != ")") {
-        if (tk.type == "eof") return null;
+    while (tk.current !== "eof") {        
+        p.push(parsePart(tk));
         
-        var part = parsePart(tk);
-        if (part == null) return null;
-        
-        if (tk.current == ",") tk.consume();
-        else if (tk.current != ")") return null;
-        
-        // Add the current Part onto the list...
-        p[i++] = part;
-    }
-    tk.consume();
-    
-    var term = new Term(name, p);
-    if (notthis) {
-        term.excludeThis = true;
-    }
-    return term;
-}
-
-// This was a beautiful piece of code. It got kludged to add [a,b,c|Z] sugar.
-function parsePart(tk) {
-    // Part -> var | id | id(optParamList)
-    // Part -> [ listBit ] ::-> cons(...)
-    if (tk.type == "var") {
-        var n = tk.current;
-        tk.consume();
-        return new Variable(n);
-    }
-    
-    if (tk.type != "id") {
-        if (tk.type != "punc" || tk.current != "[") return null;
-        // Parse a list (syntactic sugar goes here)
-        tk.consume();
-        // Special case: [] = new atom(nil).
-        if (tk.type == "punc" && tk.current == "]") {
-            tk.consume();
-            return new Atom("nil");
+        if (tk.accept("punc", ")")) {
+            break;
         }
         
-        // Get a list of parts into l
-        var l = [], i = 0;
-        
-        while (true) {
-            var t = parsePart(tk);
-            if (t == null) return null;
-            
-            l[i++] = t;
-            if (tk.current != ",") break;
-            tk.consume();
-        }
-        
-        // Find the end of the list ... "| Var ]" or "]".
-        var append;
-        if (tk.current == "|") {
-            tk.consume();
-            if (tk.type != "var") return null;
-            append = new Variable(tk.current);
-            tk.consume();
-        } else {
-            append = new Atom("nil");
-        }
-        if (tk.current != "]") return null;
-        tk.consume();
-        // Return the new cons.... of all this rubbish.
-        for 
-        (
-        --i
-        ;
-        i >= 0;
-        i--) append = new Term("cons", [l[i], append]);
-        return append;
+        tk.expect("punc", ",");
     }
-    
-    var name = tk.current;
-    tk.consume();
-    
-    if (tk.current != "(") return new Atom(name);
-    tk.consume();
-    
-    var p = [];
-    var i = 0;
-    while (tk.current != ")") {
-        if (tk.type == "eof") return null;
-        
-        var part = parsePart(tk);
-        if (part == null) return null;
-        
-        if (tk.current == ",") tk.consume();
-        else if (tk.current != ")") return null;
-        
-        // Add the current Part onto the list...
-        p[i++] = part;
-    }
-    tk.consume();
     
     return new Term(name, p);
 }
 
-function parseBody(tk) {
-    // Body -> Term {, Term...}
-    
-    var p = [];
-    var i = 0;
-    
-    var t;
-    while ((t = parseTerm(tk)) != null) {
-        p[i++] = t;
-        if (tk.current != ",") break;
-        tk.consume();
+function parsePart(tk) {
+    // Part -> var | id | id(optParamList)
+    // Part -> [ listBit ] ::-> cons(...)
+    if (tk.accept("var")) {
+        return new Variable(tk.accepted);
     }
     
-    if (i == 0) return null;
-    return p;
+    // Parse a list (syntactic sugar goes here)
+    if (tk.accept("punc", "[")) {
+        return parseList(tk);
+    }
+    
+    tk.expect("id");
+    var name = tk.accepted;    
+    
+    if (!tk.accept("punc", "(")) {    
+        return new Atom(name);
+    }
+
+    var p = [];    
+    while (tk.type !== "eof") {                
+        p.push(parsePart(tk));        
+        
+        if (tk.accept("punc", ")")) {
+            break;
+        }
+
+        tk.expect("punc", ",");
+    }    
+    
+    return new Term(name, p);
 }
+
+function parseList(tk) {
+    // empty list
+    if (tk.accept("punc", "]")) {
+        return new Atom("nil");
+    }
+    
+    // Get a list of parts into l
+    var l = [];
+    
+    while (tk.current !== "eof") {        
+        l.push(parsePart(tk));
+        if (!tk.accept("punc", ",")) {
+            break;
+        }
+    }
+    
+    // Find the end of the list ... "| Var ]" or "]".
+    var append;
+    if (tk.accept("punc", "|")) {
+        tk.expect("var");
+        append = new Variable(tk.accepted);
+    } else {
+        append = new Atom("nil");
+    }
+    tk.expect("punc", "]");
+    
+    // Construct list
+    for (var i = l.length; i--;) {
+        append = new Term("cons", [l[i], append]);
+    }
+    
+    return append;
+}
+
+function parseBody(tk) {// Body -> Term {, Term...}        
+    var terms = [];
+    
+    while (tk.current !== "eof") {        
+        terms.push(parseTerm(tk));
+        if (tk.accept("punc", ".")) {
+            break;
+        } else {
+            tk.expect("punc", ",");
+        }
+    }
+    
+    return terms;
+}
+
+
+
+

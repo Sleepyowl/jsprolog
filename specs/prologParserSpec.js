@@ -2,7 +2,9 @@
 var prologParser = require('../src/prologParser.js');
 describe("prolog parser", function () {
     it("throws on syntax errors", function () {
-        expect(function () { prologParser.parse("x."); }).toThrow("Syntax Error");
+        expect(function () { prologParser.parse("rule(X) :- :- check(X)."); }).toThrow("Syntax error: unexpected token :-");
+        expect(function () { prologParser.parse("x."); }).toThrow("Syntax error: unexpected token .");
+        expect(function () { prologParser.parse("fact([a,b,c"); }).toThrow("Syntax error: unexpected end of file");
     });
 
     it("can parse simple term", function () {
@@ -141,5 +143,50 @@ describe("prolog parser", function () {
         expect(rules[1] instanceof prologAST.Rule).toBeTruthy();
         expect(rules[1].head instanceof prologAST.Term).toBeTruthy();
         expect(rules[1].head.name).toBe("sibling");
+    });
+
+    it("parses lists in format [a,b,c] correctly", function () {
+        var db = "fact([a,b,c]).";
+        var rules = prologParser.parse(db);
+        expect(rules.length).toBe(1);
+        expect(rules[0] instanceof prologAST.Rule).toBeTruthy();
+        expect(rules[0].head instanceof prologAST.Term).toBeTruthy();
+        expect(rules[0].head.name).toBe("fact");
+        
+        var cons = rules[0].head.partlist.list[0];
+        expect(cons.name).toBe("cons");
+        expect(cons.partlist.list[0].name).toBe("a");
+        
+        cons = cons.partlist.list[1];
+        expect(cons.name).toBe("cons");
+        expect(cons.partlist.list[0].name).toBe("b");
+        
+        cons = cons.partlist.list[1];
+        expect(cons.name).toBe("cons");
+        expect(cons.partlist.list[0].name).toBe("c");
+        
+        cons = cons.partlist.list[1];
+        expect(cons.name).toBe("nil");
+    });
+
+    it("parses lists in format [a,b|X] correctly", function () {
+        var db = "fact([a,b|X]).";
+        var rules = prologParser.parse(db);
+        expect(rules.length).toBe(1);
+        expect(rules[0] instanceof prologAST.Rule).toBeTruthy();
+        expect(rules[0].head instanceof prologAST.Term).toBeTruthy();
+        expect(rules[0].head.name).toBe("fact");
+        
+        var cons = rules[0].head.partlist.list[0];
+        expect(cons.name).toBe("cons");
+        expect(cons.partlist.list[0].name).toBe("a");
+        
+        cons = cons.partlist.list[1];
+        expect(cons.name).toBe("cons");
+        expect(cons.partlist.list[0].name).toBe("b");
+        
+        cons = cons.partlist.list[1];
+        expect(cons instanceof prologAST.Variable).toBeTruthy();
+        expect(cons.name).toBe("X");                
     });
 });
