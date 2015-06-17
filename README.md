@@ -9,25 +9,30 @@ It can solve simple stuff, but its functionality is severely limited: it has no 
 
 ### How to use
 
-Please note that the project is far from stabilization and interface will surely change in some point in future.
+Please note that the project is far from stabilization and interface will surely change at some point in future.
 
 #### node.js: 
 
-    npm i jsprolog
-#### requirejs
+```
+npm i jsprolog
+```
+#### requirejs:
+In the project root:
 
-    grunt
+```
+npm i
+grunt
+```
 Then grab jsprolog.js from the project root.
 
 #### in code:
 
-
-    var Parser = require('./prologParser');
-    var Solver = require('./prologSolver');
-    var db = Parser.parse("member(X,[X|R]). member(X, [Y | R]) :- member(X, R)."),
-        query = Parser.parseQuery("member(X,[a,b,c]),member(Y,[1,2,3])."),
-        out = {},
-        result = Solver.query(db, query, out);
-
+```javascript
+var Prolog = require('jsprolog');
+var db = Prolog.Parser.parse("member(X,[X|R]). member(X, [Y | R]) :- member(X, R)."),
+    query = Prolog.Parser.parseQuery("member(X,[a,b,c]),member(Y,[1,2,3])."),
+    out = {},
+    result = Prolog.Solver.query(db, query, out);
+```
 
 Also refer to specs/prologSolverSpec.js for usage examples.
