@@ -99,6 +99,15 @@ var builtinPredicates = {
         first.parent = goals[0];
         
         return loop(ng, 0, bindingContext, fbacktrack);
+    },
+    "=/2": function (loop, goals, idx, bindingContext, fbacktrack) {
+        var ctx = new BindingContext(bindingContext);
+        if (ctx.unify(goals[0].partlist.list[0], goals[0].partlist.list[1])) {
+            return loop(goals.slice(1), 0, ctx, fbacktrack);
+        } else {
+            return fbacktrack; // FAIL
+        }
+
     }
 };
 

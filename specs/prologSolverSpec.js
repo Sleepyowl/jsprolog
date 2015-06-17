@@ -64,6 +64,32 @@ describe("prolog solver", function () {
         expect(result).toBeTruthy();
     });
     
+    it("=/2 unifies atoms", function () {
+        var db = [],
+            query = Parser.parseQuery("=(5,5),=(a,a)."),
+            result = Solver.query(db, query);
+        
+        expect(result).toBeTruthy();
+    });
+    
+    it("=/2 unifies structures", function () {
+        var db = [],
+            query = Parser.parseQuery("=(tax(income,13.0), tax(income,13.0))."),
+            result = Solver.query(db, query);
+        
+        expect(result).toBeTruthy();
+    });
+    
+    it("=/2 unifies atom with variable", function () {
+        var db = [],
+            out = {},
+            query = Parser.parseQuery("=(X,5)."),
+            result = Solver.query(db, query, out);
+        
+        expect(result).toBeTruthy();
+        expect(out.X[0]).toBe(5);
+    });
+    
     it("can produce cartesian product", function () {
         var db = Parser.parse("fact(a). fact(b). decart(X,Y):-fact(X),fact(Y).");
         var query = Parser.parseQuery("decart(Fact1,Fact2).");
@@ -100,7 +126,7 @@ describe("prolog solver", function () {
     });
     
     it("works with not unify", function () {
-        var db = Parser.parse("u(X,X). not(Term):-call(Term),!,fail. not(Term). r(X,Y):-not(u(X,Y)). "),
+        var db = Parser.parse("not(Term):-call(Term),!,fail. not(Term). r(X,Y):-not(=(X,Y)). "),
             query = Parser.parseQuery("r(a,b)."),
             result = Solver.query(db, query);
         
