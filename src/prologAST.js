@@ -80,6 +80,16 @@ Rule.prototype.toString = function toString() {
     return this.head.toString() + (this.body ? " :- " + this.body.toString() + "." : ".");
 };
 
+
+function listOfArray(array, cdr){
+    cdr = cdr || new Atom("nil");
+    for (var i = array.length, car; car = array[--i];) {
+        cdr = new Term("cons", [car, cdr]);
+    }
+    return cdr;
+}
+
+
 exports.Part = Part;
 exports.Variable = Variable;
 exports.Atom = Atom;
@@ -87,7 +97,7 @@ exports.Term = Term;
 exports.Partlist = Partlist;
 exports.Body = Body;
 exports.Rule = Rule;
-
+exports.listOfArray = listOfArray;
 
 /*
  * JUST FOR REFERENCE

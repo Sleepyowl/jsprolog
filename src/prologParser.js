@@ -194,12 +194,12 @@ function parseList(tk) {
     }
     tk.expect("punc", "]");
     
-    // Construct list
-    for (var i = l.length; i--;) {
-        append = new Term("cons", [l[i], append]);
-    }
+    //// Construct list
+    //for (var i = l.length; i--;) {
+    //    append = new Term("cons", [l[i], append]);
+    //}
     
-    return append;
+    return AST.listOfArray(l, append);
 }
 
 function parseBody(tk) {// Body -> Term {, Term...}        
