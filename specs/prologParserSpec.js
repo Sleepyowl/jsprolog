@@ -111,7 +111,7 @@ describe("prolog parser", function () {
         var db = "not(Term):-call(Term),!,fail. not(Term).";
         var rules = prologParser.parse(db);
         expect(rules.length).toBe(2);
-        expect(rules[0].body.list[1].name).toBe("cut");
+        expect(rules[0].body.list[1].name).toBe("!");
         expect(rules[0].body.list[1].partlist.list.length).toBe(0);
         expect(rules[0].body.list[2].name).toBe("fail");
         expect(rules[0].body.list[2].partlist.list.length).toBe(0);

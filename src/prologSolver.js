@@ -79,7 +79,7 @@ function varNames(list) {
 }
 
 var builtinPredicates = {
-    "cut/0" : function (loop, goals, idx, bindingContext, fbacktrack) {
+    "!/0" : function (loop, goals, idx, bindingContext, fbacktrack) {
         var nextgoals = goals.slice(1); // cut always succeeds
         return loop(nextgoals, 0, new BindingContext(bindingContext), function () {
             return fbacktrack && fbacktrack(true, goals[0].parent);

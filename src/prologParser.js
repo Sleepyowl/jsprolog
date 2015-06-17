@@ -41,11 +41,12 @@ function Tokeniser(string) {
 }
 
 var tokenizerRules = [
-    [/^([\(\)\.,\[\]\|\!]|\:\-)/, "punc"],
+    [/^([\(\)\.,\[\]\|]|\:\-)/, "punc"],
     [/^([A-Z_][a-zA-Z0-9_]*)/, "var"],
     [/^("[^"]*")/, "id"],
     [/^([a-z][a-zA-Z0-9_]*)/, "id"],
-    [/^(-?\d+(\.\d+)?)/, "id", function (x) { return +x; }]
+    [/^(-?\d+(\.\d+)?)/, "id", function (x) { return +x; }],
+    [/^(\+|\-|\*|\=|\!)/, "id"]
 ];
 
 // TODO: lexer error handling
@@ -73,9 +74,7 @@ Tokeniser.prototype.consume = function consume() {
         }
     }
     
-    // TODO: throw tokenizer error instead of eof'ing
-    this.current = null;
-    this.type = "eof";
+    throw "Unexpected tokenizer input";
 };
 
 Tokeniser.prototype.accept = function (type, symbol) {
@@ -112,16 +111,11 @@ function parseRule(tk) {
 }
 
 function parseTerm(tk) {// Term -> id ( optParamList )
-    if (tk.accept("punc", "!")) {
-        // Parse ! as cut/0        
-        return new Term("cut", []);
-    }
-    
     tk.expect("id");
     var name = tk.accepted;
-    
-    // fail shorthand for fail(), ie, fail/0
-    if (tk.current != "(" && name == "fail") {
+
+    // accept fail and ! w/o ()
+    if (tk.current != "(" && (name == "fail" || name === "!")) {
         return new Term(name, []);
     }
     
