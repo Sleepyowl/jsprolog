@@ -8,7 +8,7 @@ It's a simple Prolog interpreter written with ECMAScript 5. I've adapted it from
 It can solve simple stuff, for instance N-queen problem. It supports tail recursion.
 
 ### Limitations
-- Parser doesn't support operators. Use function notation.
+- Parser doesn't support operators. Use function call notation: `=(X, Y), is(Z, +(1, X))`.
 - It has a **very** limited set of built-in predicates.
 - Current implementation is slow. Solving N-queen problem takes about 100 seconds on Intel i5-3570.
 
@@ -29,7 +29,7 @@ Then grab jsprolog.js from the project root.
 
 #### in code:
 
-*Please note that the project is far from stabilization and API will surely change at some point in the future.*
+*Please note that the project is far from stabilization and the API will surely change at some point in the future.*
 
 ```javascript
 var Prolog = require('jsprolog');
