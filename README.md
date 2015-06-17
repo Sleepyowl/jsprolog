@@ -2,15 +2,17 @@
 
 ### What is it?
 
-It's a simple Prolog interpreter written with javascript (ECMAScript5). I've adapted it from [Jan's javascript Prolog interpreter](http://ioctl.org/logic/prolog-latest).
+It's a simple Prolog interpreter written with ECMAScript 5. I've adapted it from [Jan's javascript Prolog interpreter](http://ioctl.org/logic/prolog-latest) because I needed a convenient automated theorem proving engine in JavaScript.
 
 ### What it can do
-It can solve simple stuff, but its functionality is severely limited: it has no support for operators and only 3 builtins: fail/0, call/1 and cut/0.
+It can solve simple stuff, for instance N-queen problem. It supports tail recursion.
+
+### Limitations
+- Parser doesn't support operators. Use function notation.
+- It has a **very** limited set of built-in predicates.
+- Current implementation is slow. Solving N-queen problem takes about 100 seconds on Intel i5-3570.
 
 ### How to use
-
-Please note that the project is far from stabilization and interface will surely change at some point in future.
-
 #### node.js: 
 
 ```
@@ -27,6 +29,8 @@ Then grab jsprolog.js from the project root.
 
 #### in code:
 
+*Please note that the project is far from stabilization and API will surely change at some point in the future.*
+
 ```javascript
 var Prolog = require('jsprolog');
 var db = Prolog.Parser.parse("member(X,[X|R]). member(X, [Y | R]) :- member(X, R)."),
@@ -36,3 +40,14 @@ var db = Prolog.Parser.parse("member(X,[X|R]). member(X, [Y | R]) :- member(X, R
 ```
 
 Also refer to specs/prologSolverSpec.js for usage examples.
+
+### Supported built-in predicates
+
+Predicate | Notes
+----------| -------------------------------------------------
+=/2       | Doesn't support cyclic terms.
+!/0       | 
+fail/0    | 
+call/1    | 
+findall/3 | 
+is/2      | Supports only +,-,/,*. Silently fails on error.

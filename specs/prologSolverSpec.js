@@ -10,7 +10,7 @@ describe("prolog solver", function () {
         tailRecursion = Solver.options.experimental.tailRecursion;
     
     beforeEach(function () {
-        Solver.options.maxIterations = 1000;
+        Solver.options.maxIterations = 500000;
         Solver.options.experimental.tailRecursion = true;
     });
     
@@ -62,7 +62,7 @@ describe("prolog solver", function () {
             result = Solver.query(db, query);
         
         expect(result).toBeTruthy();
-    });   
+    });
     
     it("can produce cartesian product", function () {
         var db = Parser.parse("fact(a). fact(b). decart(X,Y):-fact(X),fact(Y).");
@@ -75,7 +75,7 @@ describe("prolog solver", function () {
         expect(out.Fact1[1]).toBe("a"); expect(out.Fact2[1]).toBe("b");
         expect(out.Fact1[2]).toBe("b"); expect(out.Fact2[2]).toBe("a");
         expect(out.Fact1[3]).toBe("b"); expect(out.Fact2[3]).toBe("b");
-    });   
+    });
     
     it("correctly works with lists", function () {
         var db = Parser.parse("member(X,[X|R]). member(X, [Y | R]) :- member(X, R)."),            
@@ -195,8 +195,24 @@ describe("prolog solver", function () {
         expect(out.R[0]).toEqual(['"i"', '"document"']);
     });
     
+    xit("solves N-queens problem", function () {
+        var db = Parser.parse(
+            "solution(Ylist):- sol(Ylist, [1, 2, 3, 4, 5, 6, 7, 8], [1, 2, 3, 4, 5, 6, 7, 8], [-7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7], [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16])." +
+            "sol([], [], [], _, _)." +
+            "sol([Y | Ylist], [X | Dx1], Dy, Du, Dv):- del(Y, Dy, Dy1), is(U, -(X, Y)), del(U, Du, Du1), is(V, +(X, Y)), del(V, Dv, Dv1), sol(Ylist, Dx1, Dy1, Du1, Dv1)." +
+            "del(Item, [Item | List], List)." +
+            "del(Item, [First | List], [First | List1]):- del(Item, List, List1)."),
+            out = {},
+            query = Parser.parseQuery("solution(X)."),
+            result = Solver.query(db, query, out);
+
+        expect(result).toBeTruthy();
+        expect(out.X instanceof Array).toBeTruthy();
+        expect(out.X.length).toBe(92);
+    });
+    
     describe("builtin", function () {
-        describe("!/0", function () { 
+        describe("!/0", function () {
             it("correctly cuts", function () {
                 var db = Parser.parse("fact(a).fact(b).firstFact(X):-fact(X),!.");
                 var query = Parser.parseQuery("firstFact(Fact).");
@@ -218,7 +234,7 @@ describe("prolog solver", function () {
                 expect(out.X[0]).toBe("a");
                 expect(out.X[1]).toBe("c");
             });
-
+            
             it("works with not unify", function () {
                 var db = Parser.parse("not(Term):-call(Term),!,fail. not(Term). r(X,Y):-not(=(X,Y)). "),
                     query = Parser.parseQuery("r(a,b)."),
@@ -226,9 +242,9 @@ describe("prolog solver", function () {
                 
                 expect(result).toBeTruthy();
             });
-        });        
-
-        describe("=/2", function () { 
+        });
+        
+        describe("=/2", function () {
             it("=/2 unifies atoms", function () {
                 var db = [],
                     query = Parser.parseQuery("=(5,5),=(a,a)."),
@@ -255,7 +271,7 @@ describe("prolog solver", function () {
                 expect(out.X[0]).toBe(5);
             });
         });
-
+        
         describe("findall/3", function () {
             it("returns all results", function () {
                 var db = Parser.parse("city(moscow,russia).city(vladivostok,russia).city(boston,usa)."),
@@ -290,7 +306,7 @@ describe("prolog solver", function () {
                 expect(result).toBeTruthy();
                 expect(out.Cities instanceof Array).toBeTruthy();
                 expect(out.Cities.length).toBe(1);
-                expect(out.Cities[0]).toEqual([10,10,10]);
+                expect(out.Cities[0]).toEqual([10, 10, 10]);
             });
             
             it("works if first argument is not a variable is a partial term", function () {
@@ -311,7 +327,7 @@ describe("prolog solver", function () {
                     query = Parser.parseQuery("findall(C,city(C,R),[moscow, vladivostok, boston])."),
                     result = Solver.query(db, query, out);
                 
-                expect(result).toBeTruthy();                
+                expect(result).toBeTruthy();
             });
             
             it("works if last argument is not a variable and shouldn't unify", function () {
@@ -333,6 +349,20 @@ describe("prolog solver", function () {
                 expect(out.Cities instanceof Array).toBeTruthy();
                 expect(out.Cities.length).toBe(1);
                 expect(out.Cities[0].length).toBe(0);
+            });
+        });
+        
+        describe("is/2", function () {
+            it("handles arithmetics", function () {
+                var db = [],
+                    out = {},
+                    query = Parser.parseQuery("is(X, /(*(+(3,-(8,3)),2),4))."),
+                    result = Solver.query(db, query, out);
+                
+                expect(result).toBeTruthy();
+                expect(out.X instanceof Array).toBeTruthy();
+                expect(out.X.length).toBe(1);
+                expect(out.X[0]).toBe(4);
             });
         });
     });

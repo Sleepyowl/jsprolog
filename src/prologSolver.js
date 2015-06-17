@@ -40,13 +40,13 @@ exports.query = function query(rulesDB, query, outVars) {
             cdb[name] = [rule];
         }
     }
-                   
+    
     var cont = getdtreeiterator(query.list, cdb, function (bindingContext) {
         var result = {};
-        for (var i=0,v; v=vars[i++]; ) {
+        for (var i = 0, v; v = vars[i++]; ) {
             result[v.name] = termToJsValue(bindingContext.value(v));
         }
-
+        
         proven = true;
         if (outVars && typeof (outVars) === "object") {
             vars.forEach(function (v) {
@@ -141,6 +141,69 @@ var builtinPredicates = {
                 return fbacktrack;
             }
         }
+    },
+    "is/2": function (loop, goals, idx, bindingContext, fbacktrack) {
+        var args = goals[0].partlist.list,
+            expression = bindingContext.value(args[1]),
+            ctx = new BindingContext(bindingContext);
+        
+        if (varNames([expression]).length) {
+            return fbacktrack; // TODO: prolog exception "ERROR: is/2: Arguments are not sufficiently instantiated"
+        }
+        
+        // build evaluation queue:
+        var queue = [expression], acc = [], c, i, x;
+        
+        while (queue.length) {
+            x = queue.pop();
+            acc.push(x);
+            if (x instanceof Term) {
+                Array.prototype.push.apply(queue, x.partlist.list);
+            }
+        }
+        
+        // evaluate
+        queue = acc;
+        acc = [];
+        i = queue.length;
+        while (i--) {
+            x = queue[i];
+            if (x instanceof Term) {
+                c = x.partlist.list.length;
+                l = acc.splice(-c, c);
+
+                switch (x.name) {
+                    case "+":
+                        acc.push(l[0] + l[1]);
+                        break;
+                    case "-":
+                        acc.push(l[0] - l[1]);
+                        break;
+                    case "*":
+                        acc.push(l[0] * l[1]);
+                        break;
+                    case "/":
+                        acc.push(l[0] / l[1]);
+                        break;
+                    default:
+                        return fbacktrack;// TODO: prolog exception "ERROR: is/2: Arithmetic: `{x.name}' is not a function"
+                }
+            } else {
+                if (typeof (x.name) === "number") {
+                    acc.push(x.name);
+                } else {
+                    // TODO: handle functions like pi e etc
+                    return fbacktrack;
+                }
+            }
+        }
+
+        if (ctx.unify(args[0], new Atom(acc[0]))) {
+            return loop(goals.slice(1), 0, ctx, fbacktrack);
+        } else {
+            return fbacktrack;
+        }
+
     }
 };
 
@@ -154,7 +217,7 @@ var builtinPredicates = {
 function getdtreeiterator(originalGoals, rulesDB, fsuccess, rootBindingContext, rootBacktrack) {
     "use strict";
     var tailEnabled = options.experimental.tailRecursion;
-
+    
     // main loop continuation
     function loop(goals, idx, parentBindingContext, fbacktrack) {
         
@@ -251,7 +314,7 @@ function getdtreeiterator(originalGoals, rulesDB, fsuccess, rootBindingContext, 
             
         }
         return fbacktrack;
-    };
+    }    ;
     
     
     return loop(originalGoals, 0, rootBindingContext || null, rootBacktrack || null);
@@ -416,10 +479,10 @@ BindingContext.prototype.value = function value(x) {
     while (i--) {
         x = queue[i];
         if (x instanceof Term) {
-            c = x.partlist.list.length;            
+            c = x.partlist.list.length;
             acc.push(new Term(x.name, acc.splice(-c, c)));
         } else acc.push(x);
-    }    
+    }
     
     return acc[0];
 }
@@ -429,7 +492,7 @@ BindingContext.prototype.value = function value(x) {
  * !! mutates variable names (altering x, y and varMap in main loop)
  * @returns true if terms unify, false otherwise
  */
-BindingContext.prototype.unify = function unify(x, y) {    
+BindingContext.prototype.unify = function unify(x, y) {
     var toSetNames = [],
         toSet = {}, 
         acc = [], 
@@ -461,7 +524,7 @@ BindingContext.prototype.unify = function unify(x, y) {
             acc.push(x, y);
         }
     }
-        
+    
     i = acc.length;
     while (i) {
         y = acc[--i];
@@ -486,14 +549,14 @@ BindingContext.prototype.unify = function unify(x, y) {
             toSet[y.name] = x;
         }
     }
-        
+    
     // renaming unified variables
     // it's guaranteed that variable with the same name is the same instance within rule, see renameVariables()
     var varmap = {};
     for (var i = 0, key; key = toSetNames[i++];) {
         if (toSet[key] instanceof Variable) {
-            varmap[toSet[key].name] = key;            
-            toSet[key].name = key; 
+            varmap[toSet[key].name] = key;
+            toSet[key].name = key;
         }
     }
     

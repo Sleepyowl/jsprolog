@@ -46,7 +46,7 @@ var tokenizerRules = [
     [/^("[^"]*")/, "id"],
     [/^([a-z][a-zA-Z0-9_]*)/, "id"],
     [/^(-?\d+(\.\d+)?)/, "id", function (x) { return +x; }],
-    [/^(\+|\-|\*|\=|\!)/, "id"]
+    [/^(\+|\-|\*|\/|\=|\!)/, "id"]
 ];
 
 // TODO: lexer error handling
