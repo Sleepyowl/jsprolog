@@ -10,7 +10,7 @@ It can solve simple stuff, for instance N-queen problem. It supports tail recurs
 ### Limitations
 - Parser doesn't support operators. Use function call notation: `=(X, Y), is(Z, +(1, X))`.
 - It has a **very** limited set of built-in predicates.
-- Current implementation is slow. Finding all solutions of N-queen problem takes about 100 seconds on Intel i5-3570.
+- Current implementation is slow. Finding all solutions of N-queen problem takes about 25 seconds on Intel i5-3570.
 
 ### How to use
 #### node.js: 
