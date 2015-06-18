@@ -484,14 +484,14 @@ BindingContext.prototype.unify = function unify(x, y) {
     var toSetNames = [],
         toSet = {}, 
         acc = [], 
-        queue = [x, y], 
+        queue = [this.value(x), this.value(y)], 
         xpl, 
         ypl,
         i;
     
     while (queue.length) {
-        x = this.value(queue.pop());
-        y = this.value(queue.pop());
+        x = queue.pop();
+        y = queue.pop();
         
         if (x instanceof Term && y instanceof Term) { // no need to expand if we are not unifying two terms
             xpl = x.partlist.list;
