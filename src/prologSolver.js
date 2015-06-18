@@ -340,16 +340,8 @@ function termToJsValue(v) {
 /**
  * creates binding context for variables
  */
-function BindingContext(parent) {
-    var ctx = this.ctx = {};
-    
-    this.varNames = parent && parent.varNames.slice(0) || []; // to avoid for(in) which is way too slow
-    if (parent) {
-        for (var n, vn = parent.varNames, i = vn.length; i--;) {
-            n = vn[i];
-            ctx[n] = parent.ctx[n];
-        }
-    }
+function BindingContext(parent) {    
+    this.ctx = Object.create(parent && parent.ctx || {});
 }
 
 /**
@@ -432,18 +424,18 @@ BindingContext.prototype.renameVariables = function renameVariables(list, parent
  * @param name name of the variable to bind
  * @param value value to bind to the variable
  */
-BindingContext.prototype.bind = function (name, value) {
+BindingContext.prototype.bind = function (name, value) {    
     this.ctx[name] = value;
-    this.varNames.push(name);
 };
 
 /**
- * Unbinds variable in the context
+ * Unbinds variable in the CURRENT context
+ * Variable remains bound in parent contexts 
+ * and might be resolved though proto chain
  * @param name variable name to unbind
  */
 BindingContext.prototype.unbind = function (name) {
-    delete this.ctx[name];
-    this.varNames.splice(this.varNames.indexOf(name), 1);
+    delete this.ctx[name]; 
 };
 
 /**
