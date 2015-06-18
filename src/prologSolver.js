@@ -22,12 +22,11 @@ exports.options = options;
  * executes a query agains the database
  * @param db compiled rule database
  * @param query compiled query
- * @param outVars (optional) object to store output
- * @returns true if unify
+ * @returns iterator to iterate through results
  */
-exports.query = function query(rulesDB, query, outVars) {
+exports.query = function query(rulesDB, query) {
     var vars = varNames(query.list),
-        proven = false,
+        result = null,
         cdb = {};
     
     // maybe move to parser level, idk
@@ -41,33 +40,32 @@ exports.query = function query(rulesDB, query, outVars) {
         }
     }
     
+    var iterator = new Iterator();
+    
     var cont = getdtreeiterator(query.list, cdb, function (bindingContext) {
         var result = {};
         for (var i = 0, v; v = vars[i++]; ) {
             result[v.name] = termToJsValue(bindingContext.value(v));
         }
-        
-        proven = true;
-        if (outVars && typeof (outVars) === "object") {
-            vars.forEach(function (v) {
-                v = v.name;
-                if (!(v in outVars)) {
-                    outVars[v] = [];
-                }
-                outVars[v].push(result[v]);
-            });
-        }
+        iterator.current = result;
     });
     
-    var i = 0;
-    while (cont != null) {
-        cont = cont();
-        if (typeof (options.maxIterations) === "number" && options.maxIterations <= ++i) {
-            throw "iteration limit reached";
+    
+    Iterator.prototype.next = function () {
+        var i = 0;
+        this.current = null;
+        while (cont != null && !this.current) {
+            cont = cont();
+            if (typeof (options.maxIterations) === "number" && options.maxIterations <= ++i) {
+                throw "iteration limit reached";
+            }
         }
+        
+        return !!this.current;
     }
     
-    return proven;
+    return iterator;
+    function Iterator() { }
 };
 
 /** 
@@ -171,7 +169,7 @@ var builtinPredicates = {
             if (x instanceof Term) {
                 c = x.partlist.list.length;
                 l = acc.splice(-c, c);
-
+                
                 switch (x.name) {
                     case "+":
                         acc.push(l[0] + l[1]);
@@ -197,7 +195,7 @@ var builtinPredicates = {
                 }
             }
         }
-
+        
         if (ctx.unify(args[0], new Atom(acc[0]))) {
             return loop(goals.slice(1), 0, ctx, fbacktrack);
         } else {
@@ -217,7 +215,8 @@ var builtinPredicates = {
 function getdtreeiterator(originalGoals, rulesDB, fsuccess, rootBindingContext, rootBacktrack) {
     "use strict";
     var tailEnabled = options.experimental.tailRecursion;
-    
+    return function () { return loop(originalGoals, 0, rootBindingContext || null, rootBacktrack || null); };
+
     // main loop continuation
     function loop(goals, idx, parentBindingContext, fbacktrack) {
         
@@ -314,10 +313,7 @@ function getdtreeiterator(originalGoals, rulesDB, fsuccess, rootBindingContext, 
             
         }
         return fbacktrack;
-    }    ;
-    
-    
-    return loop(originalGoals, 0, rootBindingContext || null, rootBacktrack || null);
+    }            
 };
 
 /**

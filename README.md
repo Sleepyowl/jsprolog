@@ -34,9 +34,11 @@ Then grab jsprolog.js from the project root.
 ```javascript
 var Prolog = require('jsprolog');
 var db = Prolog.Parser.parse("member(X,[X|R]). member(X, [Y | R]) :- member(X, R)."),
-    query = Prolog.Parser.parseQuery("member(X,[a,b,c]),member(Y,[1,2,3])."),
-    out = {},
-    result = Prolog.Solver.query(db, query, out);
+    query = Prolog.Parser.parseQuery("member(X,[a,b,c]),member(Y,[1,2,3])."),    
+    iter = Prolog.Solver.query(db, query);
+while(iter.next()){
+    console.log("X = ", iter.current.X, ", Y = ", iter.current.Y);
+}
 ```
 
 Also refer to specs/prologSolverSpec.js for usage examples.
