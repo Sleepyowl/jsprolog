@@ -26,7 +26,6 @@ exports.options = options;
  */
 exports.query = function query(rulesDB, query) {
     var vars = varNames(query.list),
-        result = null,
         cdb = {};
     
     // maybe move to parser level, idk
@@ -62,7 +61,7 @@ exports.query = function query(rulesDB, query) {
         }
         
         return !!this.current;
-    }
+    };
     
     return iterator;
     function Iterator() { }
@@ -150,7 +149,7 @@ var builtinPredicates = {
         }
         
         // build evaluation queue:
-        var queue = [expression], acc = [], c, i, x;
+        var queue = [expression], acc = [], c, i, x, l;
         
         while (queue.length) {
             x = queue.pop();
@@ -227,7 +226,7 @@ function getdtreeiterator(originalGoals, rulesDB, fsuccess, rootBindingContext, 
         
         var currentGoal = goals[0],
             currentBindingContext = new BindingContext(parentBindingContext),
-            currentGoalVarNames, rule, varMap, renamedHead, currentGoalVarNames, nextGoalsVarNames, existing;
+            currentGoalVarNames, rule, varMap, renamedHead, nextGoalsVarNames, existing;
         
         // TODO: add support for builtins with variable arity (like call/2+)
         var builtin = builtinPredicates[currentGoal.name + "/" + currentGoal.partlist.list.length];
@@ -245,21 +244,7 @@ function getdtreeiterator(originalGoals, rulesDB, fsuccess, rootBindingContext, 
                 continue;
             }
             
-            /// CURRENT BACKTRACK CONTINUATION  ///
-            /// WHEN INVOKED BACKTRACKS TO THE  ///
-            /// NEXT RULE IN THE PREVIOUS LEVEL ///
-            var fCurrentBT = function (cut, parent) {
-                
-                var b = fbacktrack;
-                if (cut) {
-                    return fbacktrack && fbacktrack(parent.parent !== goals[0].parent, parent);
-                } else {
-                    return loop(goals, i + 1, parentBindingContext, fbacktrack);
-                }
-            };
-            
             var nextGoals = goals.slice(1); // current head succeeded            
-            
             
             if (rule.body != null) {
                 nextGoals = currentBindingContext.renameVariables(rule.body.list, renamedHead, varMap).concat(nextGoals);
@@ -306,6 +291,16 @@ function getdtreeiterator(originalGoals, rulesDB, fsuccess, rootBindingContext, 
                     return loop(nextGoals, 0, currentBindingContext, fbacktrack);
                 };
             } else {
+                /// CURRENT BACKTRACK CONTINUATION  ///
+                /// WHEN INVOKED BACKTRACKS TO THE  ///
+                /// NEXT RULE IN THE PREVIOUS LEVEL ///
+                var fCurrentBT = function (cut, parent) {
+                    if (cut) {
+                        return fbacktrack && fbacktrack(parent.parent !== goals[0].parent, parent);
+                    } else {
+                        return loop(goals, i + 1, parentBindingContext, fbacktrack);
+                    }
+                };
                 return function levelDown() {
                     return loop(nextGoals, 0, currentBindingContext, fCurrentBT);
                 };
@@ -350,7 +345,7 @@ function BindingContext(parent) {
  */
 BindingContext.prototype.toString = function toString() {
     var r = [], p = [];
-    for (key in this.ctx) {
+    for (var key in this.ctx) {
         Array.prototype.push.call(
             Object.prototype.hasOwnProperty.call(this.ctx, key) ? r :p,
             key + " = " + this.ctx[key]);
@@ -373,7 +368,6 @@ BindingContext.prototype.renameVariables = function renameVariables(list, parent
         stack = [list],
         clen,
         tmp,
-        level = this.level,
         v;
     
     // prepare depth-first queue
@@ -417,7 +411,7 @@ BindingContext.prototype.renameVariables = function renameVariables(list, parent
     }
     
     return out;
-}
+};
 
 /**
  * Binds variable to a value in the context
@@ -444,7 +438,7 @@ BindingContext.prototype.unbind = function (name) {
  * @returns value of term x
  */
 BindingContext.prototype.value = function value(x) {
-    var queue = [x], acc = [], c, i, l;
+    var queue = [x], acc = [], c, i;
     
     while (queue.length) {
         x = queue.pop();
@@ -473,7 +467,7 @@ BindingContext.prototype.value = function value(x) {
     }
     
     return acc[0];
-}
+};
 
 /**
  * Unifies terms x and y, renaming and binding variables in process
@@ -487,7 +481,8 @@ BindingContext.prototype.unify = function unify(x, y) {
         queue = [this.value(x), this.value(y)], 
         xpl, 
         ypl,
-        i;
+        i,
+        len;
     
     while (queue.length) {
         x = queue.pop();
@@ -497,7 +492,7 @@ BindingContext.prototype.unify = function unify(x, y) {
             xpl = x.partlist.list;
             ypl = y.partlist.list;
             if (x.name == y.name && xpl.length == ypl.length) {
-                for (var i = 0, len = xpl.length; i < len; i++) {
+                for (i = 0, len = xpl.length; i < len; i++) {
                     queue.push(xpl[i], ypl[i]);
                 }
             } else {
@@ -540,8 +535,8 @@ BindingContext.prototype.unify = function unify(x, y) {
     
     // renaming unified variables
     // it's guaranteed that variable with the same name is the same instance within rule, see renameVariables()
-    var varmap = {};
-    for (var i = 0, key; key = toSetNames[i++];) {
+    var varmap = {}, key;
+    for (i = 0; key = toSetNames[i++];) {
         if (toSet[key] instanceof Variable) {
             varmap[toSet[key].name] = key;
             toSet[key].name = key;
@@ -549,11 +544,11 @@ BindingContext.prototype.unify = function unify(x, y) {
     }
     
     // bind values to variables (minding renames)
-    for (var i = 0, key; key = toSetNames[i++];) {
+    for (i = 0; key = toSetNames[i++];) {
         if (!(toSet[key] instanceof Variable)) {
             this.bind(varmap[key] || key, toSet[key]);
         }
     }
     
     return true;
-}
+};

@@ -98,26 +98,3 @@ exports.Partlist = Partlist;
 exports.Body = Body;
 exports.Rule = Rule;
 exports.listOfArray = listOfArray;
-
-/*
- * JUST FOR REFERENCE
- * 
-<program> ::= <clause list> <query> | <query>
-<clause list> ::= <clause> | <clause list> <clause>
-<clause> ::= <predicate> . | <predicate> :- <predicate list>.
-<predicate list> ::= <predicate> | <predicate list> , <predicate>
-<predicate> ::= <atom> | <atom> ( <term list> )
-<term list> ::= <term> | <term list> , <term>
-<term> ::= <numeral> | <atom> | <variable> | <structure>
-<structure> ::= <atom> ( <term list> )
-<query> ::= ?- <predicate list>. 
-<atom> ::= <small atom> | ' <string> '
-<small atom> ::= <lowercase letter> | <small atom> <character>
-<variable> ::= <uppercase letter> | <variable> <character>
-<lowercase letter> ::= a | b | c | ... | x | y | z
-<uppercase letter> ::= A | B | C | ... | X | Y | Z | _
-<numeral> ::= <digit> | <numeral> <digit>
-<digit> ::= 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
-<character> ::= <lowercase letter> | <uppercase letter> | <digit> | <special>
-<special> ::= + | - | * | / | \ | ^ | ~ | : | . | ? |  | # | $ | &
-<string> ::= <character> | <string> <character> */
