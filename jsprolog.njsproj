@@ -5,7 +5,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>{aca61c0b-dedd-4bb5-a534-854c904908c9}</ProjectGuid>
     <ProjectHome />
-    <ProjectView>ShowAllFiles</ProjectView>
+    <ProjectView>ProjectFiles</ProjectView>
     <StartupFile>Gruntfile.js</StartupFile>
     <WorkingDirectory>.</WorkingDirectory>
     <OutputPath>.</OutputPath>
@@ -24,15 +24,16 @@
     <Compile Include="Gruntfile.js" />
   </ItemGroup>
   <ItemGroup Label="Tests">
-    <Compile Include="specs\prologParserSpec.js" />
-    <Compile Include="specs\prologSolverSpec.js" />
+    <TypeScriptCompile Include="specs\prologParserSpec.ts" />
+    <TypeScriptCompile Include="specs\prologSolverSpec.ts" />
   </ItemGroup>
   <ItemGroup Label="typings">
+    <TypeScriptCompile Include="src\typings\jasmine\jasmine.d.ts" />
     <TypeScriptCompile Include="src\typings\node\node.d.ts" />
   </ItemGroup>
   <ItemGroup Label="sources">
     <Compile Include="src\jsprolog.js" />
-    <TypeScriptCompile Include="src\prologAST.ts" />    
+    <TypeScriptCompile Include="src\prologAST.ts" />
     <TypeScriptCompile Include="src\prologParser.ts" />
     <TypeScriptCompile Include="src\prologSolver.ts" />
   </ItemGroup>
@@ -40,6 +41,7 @@
     <Folder Include="specs" />
     <Folder Include="src" />
     <Folder Include="src\typings" />
+    <Folder Include="src\typings\jasmine\" />
     <Folder Include="src\typings\node" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.Common.targets" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />

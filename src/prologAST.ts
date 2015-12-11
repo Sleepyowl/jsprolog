@@ -105,10 +105,12 @@ export class Rule {
     }
 }
 
-export function listOfArray(array, cdr){
-    cdr = cdr || new Atom("nil");
+export function listOfArray(array, cdr?:Part){
+    cdr = cdr || Atom.Nil;
     for (var i = array.length, car; car = array[--i];) {
         cdr = new Term("cons", [car, cdr]);
     }
     return cdr;
 }
+
+export default { Part, Variable, Atom, Term, Partlist, Rule, listOfArray };

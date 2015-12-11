@@ -19,10 +19,12 @@ export function parseQuery(string) {
     return new Partlist(parseBody(tk));
 }
 
+export default { parse, parseQuery };
+
 //////////////////////////////////////////////////////////////////////
 // TODO: lexer error handling
 
-declare enum TokenType {
+declare const enum TokenType {
     Punc,
     Var,
     Id,
