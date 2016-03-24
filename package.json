@@ -1,6 +1,6 @@
 {
   "name": "jsprolog",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A simple Prolog interpreter written with javascript (ECMAScript5).",
   "keywords": [
     "prolog"
@@ -12,6 +12,7 @@
     "dist"
   ],
   "main": "dist/jsprolog.js",
+  "typings": "dist/jsprolog.d.ts",  
   "author": {
     "name": "Dmitry Soloviev",
     "email": "dmitry.soloviev@outlook.com"
