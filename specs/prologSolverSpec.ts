@@ -1,89 +1,89 @@
-﻿import AST from '../src/prologAST';
-var Solver = require("../src/prologSolver.js");
-// TODO: remove Parser dependency ?
-var Parser = require('../src/prologParser.js');
+﻿import {expect} from "chai";
 
+import * as AST from '../src/prologAST';
+import {query as solver_query, options as solver_options} from '../src/prologSolver';
+import * as Parser from '../src/prologParser';
 
 describe("prolog solver", function () {
     
-    var maxIterations = Solver.options.maxIterations,
-        tailRecursion = Solver.options.experimental.tailRecursion;
+    var maxIterations = solver_options.maxIterations,
+        tailRecursion = solver_options.experimental.tailRecursion;
     
-    beforeEach(function () {
-        Solver.options.maxIterations = 500000;
-        Solver.options.experimental.tailRecursion = true;
+    before(function () {
+        solver_options.maxIterations = 500000;
+        solver_options.experimental.tailRecursion = true;
     });
     
-    afterEach(function () {
-        Solver.options.maxIterations = maxIterations;
-        Solver.options.experimental.tailRecursion = tailRecursion;
+    after(function () {
+        solver_options.maxIterations = maxIterations;
+        solver_options.experimental.tailRecursion = tailRecursion;
     });
     
     it("solves simple fact", function () {
         var db = Parser.parse("male(bob).");
         var query = Parser.parseQuery("male(bob).");
-        var result = Solver.query(db, query);
-        expect(result.next()).toBe(true);
+        var result = solver_query(db, query);
+        expect(result.next()).to.be.true;
     });
     
     it("doesn't throw on missing rule", function () {
         var db = Parser.parse("male(bob).");
         var query = Parser.parseQuery("female(bob).");
-        var result = Solver.query(db, query);
-        expect(result.next()).toBe(false);
+        var result = solver_query(db, query);
+        expect(result.next()).to.be.false;
     });
     
     it("solves simple fact and returns values", function () {
         var db = Parser.parse("male(bob). male(jacob).");
         var query = Parser.parseQuery("male(X).");    
-        var result = Solver.query(db, query);
-        expect(result.next()).toBe(true);
-        expect(result.current.X).toBe("bob");
-        expect(result.next()).toBe(true);
-        expect(result.current.X).toBe("jacob");
-        expect(result.next()).toBe(false);
+        var result = solver_query(db, query);
+        expect(result.next()).to.be.true;
+        expect(result.current.X).to.eq("bob");
+        expect(result.next()).to.be.true;
+        expect(result.current.X).to.eq("jacob");
+        expect(result.next()).to.be.false;
     });
     
     it("doesn't unify _ with itself", function () {
         var db = Parser.parse("fact(x,x,1). fact(x,y,2)."),
             query = Parser.parseQuery("fact(_,_,X)."),            
-            result = Solver.query(db, query);
+            result = solver_query(db, query);
         
-        expect(result.next()).toBeTruthy();
-        expect("_" in result.current).toBeFalsy();
-        expect(result.current.X).toBe(1);
-        expect(result.next()).toBeTruthy();
-        expect(result.current.X).toBe(2);
-        expect(result.next()).toBe(false);
+        expect(result.next()).to.be.true;
+        expect(result.current).to.not.haveOwnProperty("_");
+        expect(result.current.X).to.eq(1);
+        expect(result.next()).to.be.true;
+        expect(result.current.X).to.eq(2);
+        expect(result.next()).to.be.false;
     });
     
     it("unifies normal variable with itself", function () {
         var db = Parser.parse("u(X,X). r(X,Y):-u(X,Y). "),
             query = Parser.parseQuery("r(a,a)."),
-            result = Solver.query(db, query);
+            result = solver_query(db, query);
         
-        expect(result.next()).toBeTruthy();
+        expect(result.next()).to.be.true;
     });
     
     it("can produce cartesian product", function () {
         var db = Parser.parse("fact(a). fact(b). decart(X,Y):-fact(X),fact(Y).");
         var query = Parser.parseQuery("decart(Fact1,Fact2).");    
-        var result = Solver.query(db, query);
-        expect(result.next()).toBe(true);        
-        expect(result.current.Fact1).toBe("a"); expect(result.current.Fact2).toBe("a");
-        expect(result.next()).toBe(true);
-        expect(result.current.Fact1).toBe("a"); expect(result.current.Fact2).toBe("b");
-        expect(result.next()).toBe(true);
-        expect(result.current.Fact1).toBe("b"); expect(result.current.Fact2).toBe("a");
-        expect(result.next()).toBe(true);
-        expect(result.current.Fact1).toBe("b"); expect(result.current.Fact2).toBe("b");
-        expect(result.next()).toBe(false);
+        var result = solver_query(db, query);
+        expect(result.next()).to.be.true;        
+        expect(result.current.Fact1).to.eq("a"); expect(result.current.Fact2).to.eq("a");
+        expect(result.next()).to.be.true;
+        expect(result.current.Fact1).to.eq("a"); expect(result.current.Fact2).to.eq("b");
+        expect(result.next()).to.be.true;
+        expect(result.current.Fact1).to.eq("b"); expect(result.current.Fact2).to.eq("a");
+        expect(result.next()).to.be.true;
+        expect(result.current.Fact1).to.eq("b"); expect(result.current.Fact2).to.eq("b");
+        expect(result.next()).to.be.false;
     });
     
     it("correctly works with lists", function () {
         var db = Parser.parse("member(X,[X|R]). member(X, [Y | R]) :- member(X, R)."),            
             query,
-            out = {},
+            
             result,
             list = AST.Atom.Nil,
             depth = 200;
@@ -94,15 +94,15 @@ describe("prolog solver", function () {
         }
         query = new AST.Partlist([new AST.Term("member", [new AST.Atom("l" + depth), list])]);
         
-        result = Solver.query(db, query);
-        expect(result.next()).toBeTruthy();
-        expect(result.next()).toBeFalsy();
+        result = solver_query(db, query);
+        expect(result.next()).to.be.true;
+        expect(result.next()).to.be.false;
     });
     
     it("produces list cartesian", function () {
         var db = Parser.parse("member(X,[X|R]). member(X, [Y | R]) :- member(X, R)."),            
             query = Parser.parseQuery("member(X,[a,b,c]),member(Y,[1,2,3])."),    
-            result = Solver.query(db, query),
+            result = solver_query(db, query),
             X = [],
             Y = [];
         
@@ -111,36 +111,36 @@ describe("prolog solver", function () {
             Y.push(result.current.Y);
         }        
 
-        expect(X).toEqual(["a", "a", "a", "b", "b", "b", "c", "c", "c"]);
-        expect(Y).toEqual([1 , 2 , 3 , 1 , 2 , 3 , 1 , 2 , 3]);
+        expect(X).to.eql(["a", "a", "a", "b", "b", "b", "c", "c", "c"]);
+        expect(Y).to.eql([1 , 2 , 3 , 1 , 2 , 3 , 1 , 2 , 3]);
     });
 
     it("can append lists", function () {
         var db = Parser.parse('append([], List, List). append([Head | Tail], List2, [Head | Result]):-append(Tail, List2, Result).'),
             query = Parser.parseQuery('append([b,c,d],[one,two,three,four],L).'),
-            result = Solver.query(db, query);
-        expect(result.next()).toBeTruthy();
-        expect(result.current.L).toEqual(['b', 'c', 'd', 'one', 'two', 'three', 'four']);
-        expect(result.next()).toBeFalsy();
+            result = solver_query(db, query);
+        expect(result.next()).to.be.ok;
+        expect(result.current.L).to.eql(['b', 'c', 'd', 'one', 'two', 'three', 'four']);
+        expect(result.next()).to.be.false;
     });
     
     it("can copy lists", function () {
         var db = Parser.parse("cop([],[]). cop([X|T1],[X|T2]):-cop(T1,T2)."),    
             query = Parser.parseQuery('cop([1,2,3],X).'),
-            result = Solver.query(db, query);
+            result = solver_query(db, query);
 
-        expect(result.next()).toBeTruthy();
-        expect(result.current.X).toEqual([1, 2, 3]);
-        expect(result.next()).toBeFalsy();
+        expect(result.next()).to.be.true;
+        expect(result.current.X).to.eql([1, 2, 3]);
+        expect(result.next()).to.be.false;
     });
     
     it("can filter lists", function () {
         var db = Parser.parse("fil(_, [],[]). fil(X, [X|T1], T2):-fil(X, T1,T2). fil(X, [Y|T1], [Y|T2]):-fil(X,T1,T2).");    
         var query = Parser.parseQuery('fil(8, [1,2,8,3],X).');
-        var result = Solver.query(db, query);
-        expect(result.next()).toBeTruthy();
-        expect(result.current.X).toEqual([1, 2, 3]);
-        expect(result.next()).toBeFalsy();
+        var result = solver_query(db, query);
+        expect(result.next()).to.be.true;
+        expect(result.current.X).to.eql([1, 2, 3]);
+        expect(result.next()).to.be.false;
     });   
     
     it("returns correct number of results (cut issue)", function () {
@@ -151,10 +151,10 @@ describe("prolog solver", function () {
             'limit([H|T],GEnv,[X | Env]):-fnd(H, GEnv, X), !, limit(T,GEnv,Env).' + 
             'limit([H|T],GEnv,Env):-limit(T,GEnv,Env).');
         var query = Parser.parseQuery('limit(["i", "document"], ["i", "document", "q"], R).');    
-        var result = Solver.query(db, query);
-        expect(result.next()).toBeTruthy("solves");        
-        expect(result.current.R).toEqual(['"i"', '"document"']);
-        expect(result.next()).toBeFalsy("only one solution");        
+        var result = solver_query(db, query);
+        expect(result.next()).to.be.true;        
+        expect(result.current.R).to.eql(['"i"', '"document"']);
+        expect(result.next()).to.be.false;        
     });
     
     
@@ -168,15 +168,15 @@ describe("prolog solver", function () {
             "del(Item, [Item | List], List)." +
             "del(Item, [First | List], [First | List1]):- del(Item, List, List1)."),    
                 query = Parser.parseQuery("solution(X)."),
-                result = Solver.query(db, query);
+                result = solver_query(db, query);
             
-            expect(result.next()).toBeTruthy();
-            expect(result.current.X).toEqual([1, 5, 8, 6, 3, 7, 2, 4]);
+            expect(result.next()).to.be.true;
+            expect(result.current.X).to.eql([1, 5, 8, 6, 3, 7, 2, 4]);
         // 2nd and 3rd (commented because slow)
-        //expect(result.next()).toBeTruthy();        
-        //expect(result.current.X).toEqual([1, 6, 8, 3, 7, 4, 2, 5]);
-        //expect(result.next()).toBeTruthy();        
-        //expect(result.current.X).toEqual([1, 7, 4, 6, 8, 2, 5, 3]);         
+        //expect(result.next()).to.be.ok;        
+        //expect(result.current.X).to.eql([1, 6, 8, 3, 7, 4, 2, 5]);
+        //expect(result.next()).to.be.ok;        
+        //expect(result.current.X).to.eql([1, 7, 4, 6, 8, 2, 5, 3]);         
         });
 
         it("color map example from prolog tutorial", function () {
@@ -197,17 +197,17 @@ describe("prolog solver", function () {
                 query = Parser.parseQuery("conflict(R1,R2,b),color(R1,C,b)."),    
                 result;
             
-            result = Solver.query(db, query);
+            result = solver_query(db, query);
             
-            expect(result.next()).toBe(true);
-            expect(result.current.R1).toBe(2);
-            expect(result.current.R2).toBe(4);
-            expect(result.current.C).toBe("blue");
-            expect(result.next()).toBe(true);
-            expect(result.current.R1).toBe(4);
-            expect(result.current.R2).toBe(2);
-            expect(result.current.C).toBe("blue");
-            expect(result.next()).toBe(false);
+            expect(result.next()).to.be.true;
+            expect(result.current.R1).to.eq(2);
+            expect(result.current.R2).to.eq(4);
+            expect(result.current.C).to.eq("blue");
+            expect(result.next()).to.be.true;
+            expect(result.current.R1).to.eq(4);
+            expect(result.current.R2).to.eq(2);
+            expect(result.current.C).to.eq("blue");
+            expect(result.next()).to.be.false;
         });
     });
     
@@ -216,29 +216,29 @@ describe("prolog solver", function () {
             it("correctly cuts", function () {
                 var db = Parser.parse("fact(a).fact(b).firstFact(X):-fact(X),!.");
                 var query = Parser.parseQuery("firstFact(Fact).");                
-                var result = Solver.query(db, query);
-                expect(result.next()).toBe(true);
-                expect(result.current.Fact).toBe("a");
-                expect(result.next()).toBe(false);
+                var result = solver_query(db, query);
+                expect(result.next()).to.be.true;
+                expect(result.current.Fact).to.eq("a");
+                expect(result.next()).to.be.false;
             });
             
             it("works with classic not implementation", function () {                
                 var db = Parser.parse("not(Term):-call(Term),!,fail. not(Term). fact(a). fact(b). secret(b). fact(c). open(X):-fact(X),not(secret(X)).");
                 var query = Parser.parseQuery("open(X).");                
-                var result = Solver.query(db, query);
-                expect(result.next()).toBe(true);                                
-                expect(result.current.X).toBe("a");
-                expect(result.next()).toBe(true);                                
-                expect(result.current.X).toBe("c");
-                expect(result.next()).toBe(false);                                
+                var result = solver_query(db, query);
+                expect(result.next()).to.be.true;                                
+                expect(result.current.X).to.eq("a");
+                expect(result.next()).to.be.true;                                
+                expect(result.current.X).to.eq("c");
+                expect(result.next()).to.be.false;                                
             });
             
             it("works with not unify", function () {
                 var db = Parser.parse("not(Term):-call(Term),!,fail. not(Term). r(X,Y):-not(=(X,Y)). "),
                     query = Parser.parseQuery("r(a,b)."),
-                    result = Solver.query(db, query);
+                    result = solver_query(db, query);
                 
-                expect(result.next()).toBeTruthy();
+                expect(result.next()).to.be.ok;
             });
         });
         
@@ -246,27 +246,27 @@ describe("prolog solver", function () {
             it("=/2 unifies atoms", function () {
                 var db = [],
                     query = Parser.parseQuery("=(5,5),=(a,a)."),
-                    result = Solver.query(db, query);
+                    result = solver_query(db, query);
                 
-                expect(result.next()).toBeTruthy();
+                expect(result.next()).to.be.ok;
             });
             
             it("=/2 unifies structures", function () {
                 var db = [],
                     query = Parser.parseQuery("=(tax(income,13.0), tax(income,13.0))."),
-                    result = Solver.query(db, query);
+                    result = solver_query(db, query);
                 
-                expect(result.next()).toBeTruthy();
+                expect(result.next()).to.be.ok;
             });
             
             it("=/2 unifies atom with variable", function () {
                 var db = [],
-                    out = {},
+                    
                     query = Parser.parseQuery("=(X,5)."),
-                    result = Solver.query(db, query, out);
+                    result = solver_query(db, query);
                 
-                expect(result.next()).toBeTruthy();
-                expect(result.current.X).toBe(5);
+                expect(result.next()).to.be.ok;
+                expect(result.current.X).to.eq(5);
             });
         });
         
@@ -274,81 +274,81 @@ describe("prolog solver", function () {
             it("returns all results", function () {
                 var db = Parser.parse("city(moscow,russia).city(vladivostok,russia).city(boston,usa)."),                    
                     query = Parser.parseQuery("findall(C,city(C,_),Cities)."),
-                    result = Solver.query(db, query);
+                    result = solver_query(db, query);
                 
-                expect(result.next()).toBe(true);                
-                expect(result.current.Cities).toEqual(["moscow", "vladivostok", "boston"]);
-                expect(result.next()).toBe(false);
+                expect(result.next()).to.be.true;                
+                expect(result.current.Cities).to.eql(["moscow", "vladivostok", "boston"]);
+                expect(result.next()).to.be.false;
             });
             
             it("sees parent context", function () {
                 var db = Parser.parse("city(moscow,russia).city(vladivostok,russia).city(boston,usa)."),                    
                     query = Parser.parseQuery("=(R,usa),findall(C,city(C,R),Cities)."),
-                    result = Solver.query(db, query);
+                    result = solver_query(db, query);
                 
-                expect(result.next()).toBe(true);                
-                expect(result.current.Cities).toEqual(["boston"]);
-                expect(result.next()).toBe(false);                
+                expect(result.next()).to.be.true;                
+                expect(result.current.Cities).to.eql(["boston"]);
+                expect(result.next()).to.be.false;                
             });
             
             it("works if first argument is not a variable and grounded", function () {
                 var db = Parser.parse("city(moscow,russia).city(vladivostok,russia).city(boston,usa)."),                    
                     query = Parser.parseQuery("findall(10,city(C,R),Cities)."),
-                    result = Solver.query(db, query);
+                    result = solver_query(db, query);
                 
-                expect(result.next()).toBe(true);                                
-                expect(result.current.Cities).toEqual([10, 10, 10]);
-                expect(result.next()).toBe(false);                
+                expect(result.next()).to.be.true;                                
+                expect(result.current.Cities).to.eql([10, 10, 10]);
+                expect(result.next()).to.be.false;                
             });
             
             it("works if first argument is a partial term", function () {
                 var db = Parser.parse("city(moscow,russia).city(vladivostok,russia).city(boston,usa)."),                    
                     query = Parser.parseQuery("findall(term(C),city(C,R),Cities)."),
-                    result = Solver.query(db, query);
+                    result = solver_query(db, query);
                 
-                expect(result.next()).toBe(true);                
-                expect(result.current.Cities).toEqual(['term(moscow)', 'term(vladivostok)', 'term(boston)']);
-                expect(result.next()).toBe(false);                
+                expect(result.next()).to.be.true;                
+                expect(result.current.Cities).to.eql(['term(moscow)', 'term(vladivostok)', 'term(boston)']);
+                expect(result.next()).to.be.false;                
             });
             
             it("works if last argument is not a variable and should unify", function () {
                 var db = Parser.parse("city(moscow,russia).city(vladivostok,russia).city(boston,usa)."),                    
                     query = Parser.parseQuery("findall(C,city(C,R),[moscow, vladivostok, boston])."),
-                    result = Solver.query(db, query);
+                    result = solver_query(db, query);
                 
-                expect(result.next()).toBe(true);  
+                expect(result.next()).to.be.true;  
             });
             
             it("works if last argument is not a variable and shouldn't unify", function () {
                 var db = Parser.parse("city(moscow,russia).city(vladivostok,russia).city(boston,usa)."),                    
                     query = Parser.parseQuery("findall(C,city(C,R),[brussels])."),
-                    result = Solver.query(db, query);
+                    result = solver_query(db, query);
                 
-                expect(result.next()).toBe(false);  
+                expect(result.next()).to.be.false;  
             });
             
             it("returns empty list if goal fails", function () {
                 var db = Parser.parse("city(moscow,russia).city(vladivostok,russia).city(boston,usa)."),
-                    out = {},
+                    
                     query = Parser.parseQuery("findall(C,city(C,canada),Cities)."),
-                    result = Solver.query(db, query, out);
+                    result = solver_query(db, query);
                 
-                expect(result.next()).toBe(true);                  
-                expect(result.current.Cities).toEqual([]);
-                expect(result.next()).toBe(false);  
+                expect(result.next()).to.be.true;                  
+                expect(result.current.Cities).to.eql([]);
+                expect(result.next()).to.be.false;  
             });
         });
         
         describe("is/2", function () {
             it("handles four arithmetic operations", function () {
                 var db = [],
-                    out = {},
+                    
                     query = Parser.parseQuery("is(X, /(*(+(3,-(8,3)),2),4))."),
-                    result = Solver.query(db, query, out);
+                    result = solver_query(db, query);
                 
-                expect(result.next()).toBe(true);  
-                expect(result.current.X).toBe(4);
-                expect(result.next()).toBe(false);  
+                expect(result.next()).to.be.true;  
+                expect(result.current.X).to.eq(4);
+                expect(result.next()).to.be.false;  
             });
         });
     });

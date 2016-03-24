@@ -1,7 +1,7 @@
 ﻿import {Part, Variable, Atom, Term, Partlist, Rule, listOfArray} from './prologAST';
 
 
-var options = {
+export var options = {
     maxIterations: null,
     experimental: {
         tailRecursion: false
@@ -14,7 +14,7 @@ var options = {
  * @param query compiled query
  * @returns iterator to iterate through results
  */
-function query(rulesDB, query) {
+export function query(rulesDB, query) {
     var vars = varNames(query.list),
         cdb = {};
     
@@ -56,8 +56,6 @@ function query(rulesDB, query) {
     return iterator;
     function Iterator() { }
 };
-
-export default { options, query };
 
 
 /** 

@@ -2,7 +2,8 @@
 
 ### What is it?
 
-It's a simple Prolog interpreter written with ECMAScript 5. I've adapted it from [Jan's javascript Prolog interpreter](http://ioctl.org/logic/prolog-latest) because I needed a convenient automated theorem proving engine in JavaScript.
+It's a simple Prolog interpreter written with TypeScript. 
+I've adapted it from [Jan's javascript Prolog interpreter](http://ioctl.org/logic/prolog-latest) because I needed a convenient automated theorem proving engine in JavaScript.
 
 ### What it can do
 It can solve simple stuff, for instance N-queen problem. It supports tail recursion.
@@ -12,22 +13,10 @@ It can solve simple stuff, for instance N-queen problem. It supports tail recurs
 - It has a **very** limited set of built-in predicates.
 - Current implementation is slow. Finding all solutions of N-queen problem takes about 25 seconds on Intel i5-3570.
 
-### How to use
-#### node.js: 
-
+### How to use 
 ```
 npm i jsprolog
 ```
-#### requirejs:
-In the project root:
-
-```
-npm i
-grunt
-```
-Then grab jsprolog.js from the project root.
-
-#### in code:
 
 *Please note that the project is far from stabilization and the API will surely change at some point in the future.*
 

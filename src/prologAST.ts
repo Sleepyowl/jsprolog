@@ -112,5 +112,3 @@ export function listOfArray(array, cdr?:Part){
     }
     return cdr;
 }
-
-export default { Part, Variable, Atom, Term, Partlist, Rule, listOfArray };
