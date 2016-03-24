@@ -1,7 +1,7 @@
 ﻿import {expect} from "chai";
 
-import * as prologAST from '../src/prologAST';
-import * as  prologParser from '../src/prologParser';
+import * as prologAST from './prologAST';
+import * as  prologParser from './prologParser';
 
 describe("prolog parser", function () {
     it("throws on syntax errors", function () {

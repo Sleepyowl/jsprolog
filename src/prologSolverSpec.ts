@@ -1,8 +1,8 @@
 ﻿import {expect} from "chai";
 
-import * as AST from '../src/prologAST';
-import {query as solver_query, options as solver_options} from '../src/prologSolver';
-import * as Parser from '../src/prologParser';
+import * as AST from './prologAST';
+import {query as solver_query, options as solver_options} from './prologSolver';
+import * as Parser from './prologParser';
 
 describe("prolog solver", function () {
     

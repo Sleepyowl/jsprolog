@@ -29,6 +29,6 @@
   },
   "scripts": {
       "prepublish": "./node_modules/.bin/tsc",
-      "test": "./node_modules/.bin/tsc && mocha ./dist/specs/*Spec.js"
+      "test": "./node_modules/.bin/tsc && mocha ./dist/*Spec.js"
   }
 }
