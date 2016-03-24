@@ -4,7 +4,7 @@
     Term
 }
 
-export abstract class Part{
+export abstract class Part {
     /**     
      * @class Part
      * @classdesc Part := Variable(name) | Atom(name) | Term(name, partlist)
@@ -21,7 +21,7 @@ export abstract class Part{
     }
 }
 
-export class Variable extends Part {        
+export class Variable extends Part {
     constructor(name: string) {
         super(name);
     }
@@ -29,9 +29,9 @@ export class Variable extends Part {
 Variable.prototype.type = PartType.Variable; // TODO:  verify if it's faster than instanceof checks
 
 export class Atom extends Part {
-    constructor(head) {
+    constructor(head: string) {
         super(head);
-    }    
+    }
     static Nil = new Atom(null);
 }
 Atom.prototype.type = PartType.Atom; // TODO:  verify if it's faster than instanceof checks
@@ -41,10 +41,10 @@ Atom.prototype.type = PartType.Atom; // TODO:  verify if it's faster than instan
  */
 export class Term extends Part {
     partlist: Partlist
-    constructor(head, list) {
+    constructor(head: string, list: Part[]) {
         super(head);
         this.partlist = new Partlist(list);
-    }        
+    }
     toString() {
         var result = "";
         if (this.name == "cons") {
@@ -54,7 +54,7 @@ export class Term extends Part {
                 x = (<Term>x).partlist.list[1];
             }
 
-            if ((x instanceof Atom && x.name == "nil") || x instanceof Variable) {
+            if ((x === Atom.Nil) || x instanceof Variable) {
                 x = this;
                 result += "[";
                 var com = false;
@@ -83,9 +83,9 @@ Term.prototype.type = PartType.Term; // TODO:  verify if it's faster than instan
 
 
 export class Partlist {
-    constructor(public list:Part[]) {}
+    constructor(public list: Part[]) { }
     toString() {
-        return this.list.map(function (e) { return e.toString(); }).join(", ");
+        return this.list.map(function(e) { return e.toString(); }).join(", ");
     }
 }
 
@@ -105,7 +105,7 @@ export class Rule {
     }
 }
 
-export function listOfArray(array, cdr?:Part){
+export function listOfArray(array, cdr?: Part) {
     cdr = cdr || Atom.Nil;
     for (var i = array.length, car; car = array[--i];) {
         cdr = new Term("cons", [car, cdr]);
