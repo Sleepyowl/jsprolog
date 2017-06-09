@@ -12,7 +12,7 @@
     "dist"
   ],
   "main": "dist/jsprolog.js",
-  "typings": "dist/jsprolog.d.ts",  
+  "typings": "dist/jsprolog.d.ts",
   "author": {
     "name": "Dmitry Soloviev",
     "email": "dmitry.soloviev@outlook.com"
@@ -23,13 +23,15 @@
   },
   "dependencies": {},
   "devDependencies": {
+    "@types/chai": "^4.0.0",
+    "@types/mocha": "^2.2.41",
     "chai": "^3.5.0",
     "mocha": "^2.4.5",
     "tslint": "^3.6.0",
     "typescript": "^2.0.0"
   },
   "scripts": {
-      "prepublish": "./node_modules/.bin/tsc",
-      "test": "./node_modules/.bin/tsc && mocha ./dist/*Spec.js"
+    "prepublish": "./node_modules/.bin/tsc",
+    "test": "./node_modules/.bin/tsc && mocha ./dist/*Spec.js"
   }
 }
