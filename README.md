@@ -13,6 +13,15 @@ It can solve simple stuff, for instance N-queen problem. It supports tail recurs
 - It has a **very** limited set of built-in predicates.
 - Current implementation is slow. Finding all solutions of N-queen problem takes about 25 seconds on Intel i5-3570.
 
+### Preliminary string support 
+Jsprolog features rudimental support for strings:
+
+- Double quoted text is parsed as a list of character codes.
+- Use `\"` to mask double quote. 
+- Other backslash codes are not recognized.
+- No built-in predicates to work with strings.
+- Will be replaced with string type in future.
+
 ### How to use 
 ```
 npm i jsprolog

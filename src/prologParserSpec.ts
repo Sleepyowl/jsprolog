@@ -192,4 +192,17 @@ describe("prolog parser", function () {
         expect(cons instanceof prologAST.Variable).to.be.ok;
         expect(cons.name).to.eq("X");                
     });
+
+    it("parses double quoted strings correctly", function () {
+        var db = `fact("sådan er det \"bare\"").`;
+        var rules = prologParser.parse(db);
+        expect(rules.length).to.eq(1);
+        expect(rules[0] instanceof prologAST.Rule).to.be.ok;
+        expect(rules[0].head instanceof prologAST.Term).to.be.ok;
+        expect(rules[0].head.name).to.eq("fact");
+        
+        var str = rules[0].head.partlist.list[0];
+        expect(str.name).to.eq("cons");
+        expect(str.toString()).to.eq("[115, 229, 100, 97, 110, 32, 101, 114, 32, 100, 101, 116, 32, 34, 98, 97, 114, 101, 34]");
+    });
 });

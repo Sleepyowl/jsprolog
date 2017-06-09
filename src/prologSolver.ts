@@ -101,7 +101,7 @@ var builtinPredicates = {
 
         var ng = goals.slice(0);
         ng[0] = first;
-        first.parent = goals[0];
+        (first as any).parent = goals[0];
 
         return loop(ng, 0, bindingContext, fbacktrack);
     },

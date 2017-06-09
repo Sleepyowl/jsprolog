@@ -150,10 +150,10 @@ describe("prolog solver", function () {
             'limit([],_,[]). ' + 
             'limit([H|T],GEnv,[X | Env]):-fnd(H, GEnv, X), !, limit(T,GEnv,Env).' + 
             'limit([H|T],GEnv,Env):-limit(T,GEnv,Env).');
-        var query = Parser.parseQuery('limit(["i", "document"], ["i", "document", "q"], R).');    
+        var query = Parser.parseQuery("limit(['i', 'document'], ['i', 'document', 'q'], R).");    
         var result = solver_query(db, query);
         expect(result.next()).to.be.true;        
-        expect(result.current.R).to.eql(['"i"', '"document"']);
+        expect(result.current.R).to.eql(['i', 'document']);
         expect(result.next()).to.be.false;        
     });
     
