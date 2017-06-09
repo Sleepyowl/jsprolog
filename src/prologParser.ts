@@ -1,4 +1,4 @@
-﻿import {Part, Variable, Atom, Term, Partlist, Rule, listOfArray} from './prologAST';
+﻿import { Part, Variable, Atom, Term, Partlist, Rule, listOfArray } from './prologAST';
 
 /**
  * Parses the DB
@@ -28,13 +28,17 @@ declare const enum TokenType {
     Punc,
     Var,
     Id,
+    String,
     EOF
 }
+
+function trimQuotes(x: string) { return x.substr(1, x.length - 2); }
 
 var tokenizerRules = [
     [/^([\(\)\.,\[\]\|]|\:\-)/, TokenType.Punc],
     [/^([A-Z_][a-zA-Z0-9_]*)/, TokenType.Var],
-    [/^("[^"]*")/, TokenType.Id],
+    [/^('[^']*')/, TokenType.Id, trimQuotes],
+    [/^("(\"|[^"])*")/, TokenType.String, trimQuotes],
     [/^([a-z][a-zA-Z0-9_]*)/, TokenType.Id],
     [/^(-?\d+(\.\d+)?)/, TokenType.Id, function (x) { return +x; }],
     [/^(\+|\-|\*|\/|\=|\!)/, TokenType.Id]
@@ -54,7 +58,7 @@ class Tokeniser {
     }
     consume() {
         if (this.type == TokenType.EOF) return;
-    
+
         // Eat any leading WS and %-style comments
         var r = this.remainder.match(/^(\s+|([%].*)[\n\r]+)*/);
         if (r) {
@@ -99,7 +103,7 @@ class Tokeniser {
 
 function parseRule(tk: Tokeniser) {
     // Rule := Term . | Term :- PartList .
-    
+
     var h = parseTerm(tk);
 
     if (tk.accept(TokenType.Punc, ".")) {
@@ -143,10 +147,15 @@ function parsePart(tk: Tokeniser) {
     if (tk.accept(TokenType.Var)) {
         return new Variable(tk.accepted);
     }
-    
+
     // Parse a list (syntactic sugar goes here)
     if (tk.accept(TokenType.Punc, "[")) {
         return parseList(tk);
+    }
+
+    // Parse a string
+    if (tk.accept(TokenType.String)) {
+        return parseString(tk);
     }
 
     tk.expect(TokenType.Id);
@@ -170,12 +179,22 @@ function parsePart(tk: Tokeniser) {
     return new Term(name, p);
 }
 
+function parseString(tk: Tokeniser) {
+    const str = tk.accepted;
+    const arr = [];
+    console.log("accepted string = %s", str);
+    for (let i = 0; i < str.length; ++i) {
+        arr.push(new Atom(str.charCodeAt(i).toString()));
+    }
+    return listOfArray(arr, Atom.Nil);
+}
+
 function parseList(tk: Tokeniser) {
     // empty list
     if (tk.accept(TokenType.Punc, "]")) {
         return Atom.Nil;
     }
-    
+
     // Get a list of parts into l
     var l = [];
 
@@ -185,7 +204,7 @@ function parseList(tk: Tokeniser) {
             break;
         }
     }
-    
+
     // Find the end of the list ... "| Var ]" or "]".
     var append;
     if (tk.accept(TokenType.Punc, "|")) {
@@ -195,12 +214,12 @@ function parseList(tk: Tokeniser) {
         append = Atom.Nil;
     }
     tk.expect(TokenType.Punc, "]");
-    
+
     //// Construct list
     //for (var i = l.length; i--;) {
     //    append = new Term("cons", [l[i], append]);
     //}
-    
+
     return listOfArray(l, append);
 }
 
