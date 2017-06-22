@@ -18,7 +18,6 @@ Jsprolog features rudimental support for strings:
 
 - Double quoted text is parsed as a list of character codes.
 - Use `\"` to mask double quote. 
-- Other backslash codes are not recognized.
 - No built-in predicates to work with strings.
 - Will be replaced with string type in future.
 
