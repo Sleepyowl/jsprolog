@@ -17,7 +17,7 @@ It can solve simple stuff, for instance N-queen problem. It supports tail recurs
 Jsprolog features rudimental support for strings:
 
 - Double quoted text is parsed as a list of character codes.
-- Use `\"` to mask double quote. 
+- Use `\"` to mask double quote (NB: remember to escape `\` as well in javascript strings: `"looks \\\"pretty\\\""` )
 - No built-in predicates to work with strings.
 - Will be replaced with string type in future.
 
