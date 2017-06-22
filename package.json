@@ -1,6 +1,6 @@
 {
   "name": "jsprolog",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "A simple Prolog interpreter written with javascript (ECMAScript5).",
   "keywords": [
     "prolog"
