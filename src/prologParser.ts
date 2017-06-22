@@ -37,8 +37,8 @@ function trimQuotes(x: string) { return x.substr(1, x.length - 2); }
 var tokenizerRules = [
     [/^([\(\)\.,\[\]\|]|\:\-)/, TokenType.Punc],
     [/^([A-Z_][a-zA-Z0-9_]*)/, TokenType.Var],
-    [/^('[^']*')/, TokenType.Id, trimQuotes],
-    [/^("(\"|[^"])*")/, TokenType.String, trimQuotes],
+    [/^('[^']*?')/, TokenType.Id, trimQuotes],
+    [/^("(?:[^"\\]|\\.)*?")/, TokenType.String, trimQuotes],
     [/^([a-z][a-zA-Z0-9_]*)/, TokenType.Id],
     [/^(-?\d+(\.\d+)?)/, TokenType.Id, function (x) { return +x; }],
     [/^(\+|\-|\*|\/|\=|\!)/, TokenType.Id]
@@ -179,12 +179,35 @@ function parsePart(tk: Tokeniser) {
     return new Term(name, p);
 }
 
+const escapes = {
+    'b': "\b".charCodeAt(0),
+    'r': "\r".charCodeAt(0),
+    'n': "\n".charCodeAt(0),
+    'f': "\f".charCodeAt(0),
+    't': "\t".charCodeAt(0),
+    'v': "\v".charCodeAt(0),
+    "'": "'".charCodeAt(0),
+    '"': '"'.charCodeAt(0),
+    "\\": "\\".charCodeAt(0)
+};
+
 function parseString(tk: Tokeniser) {
     const str = tk.accepted;
-    const arr = [];
-    console.log("accepted string = %s", str);
+    const arr = [];    
+    
     for (let i = 0; i < str.length; ++i) {
-        arr.push(new Atom(str.charCodeAt(i).toString()));
+        let code = str.charCodeAt(i);
+
+        if(code === 92) {            
+            // we expect string to be valid
+            // no checks here
+            code = escapes[str[++i]];
+            if(typeof code === "undefined") {
+                 throw `Unexpected backslash sequence \\${str[i]}`;
+            }
+        }
+                
+        arr.push(new Atom(code.toString()));        
     }
     return listOfArray(arr, Atom.Nil);
 }

@@ -193,16 +193,21 @@ describe("prolog parser", function () {
         expect(cons.name).to.eq("X");                
     });
 
-    it("parses double quoted strings correctly", function () {
-        var db = `fact("sådan er det \"bare\"").`;
+    it("parses several double quoted strings correctly", function () {
+        var db = `fact("sådan er det \\"bare\\"", 10, "second string \\'\\\\\\r\\t\\n\\v\\b").`;
         var rules = prologParser.parse(db);
         expect(rules.length).to.eq(1);
         expect(rules[0] instanceof prologAST.Rule).to.be.ok;
         expect(rules[0].head instanceof prologAST.Term).to.be.ok;
         expect(rules[0].head.name).to.eq("fact");
         
-        var str = rules[0].head.partlist.list[0];
+        const s2a = (s:string) => `[${s.split("").map(x => x.charCodeAt(0)).join(", ")}]`;
+        const str = rules[0].head.partlist.list[0];
+        const str2 = rules[0].head.partlist.list[2];
         expect(str.name).to.eq("cons");
-        expect(str.toString()).to.eq("[115, 229, 100, 97, 110, 32, 101, 114, 32, 100, 101, 116, 32, 34, 98, 97, 114, 101, 34]");
+        expect(str.toString()).to.eq(s2a("sådan er det \"bare\""));
+
+        expect(str2.name).to.eq("cons");
+        expect(str2.toString()).to.eq(s2a("second string \'\\\r\t\n\v\b"));
     });
 });
